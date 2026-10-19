@@ -1,0 +1,130 @@
+name: PF2e Guarder Release Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NPM_CONFIG_AUDIT: false
+
+      - name: Validate module manifest
+        run: |
+          jq empty module.json
+          test "$(jq -r '.id' module.json)" = "pf2e-guarder"
+
+      - name: Check JavaScript syntax
+        run: npm run check
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+  build-release:
+    if: github.event_name == 'release'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG_NAME: ${{ github.event.release.tag_name }}
+      PROJECT_URL: https://github.com/${{ github.repository }}
+      MANIFEST_URL: https://github.com/${{ github.repository }}/releases/latest/download/module.json
+      DOWNLOAD_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/module.zip
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Verify release version and finalize manifest
+        shell: bash
+        run: |
+          VERSION="${TAG_NAME#v}"
+          MANIFEST_VERSION="$(jq -r '.version' module.json)"
+          if [[ "$VERSION" != "$MANIFEST_VERSION" ]]; then
+            echo "Release tag $TAG_NAME does not match module.json version $MANIFEST_VERSION" >&2
+            exit 1
+          fi
+          jq \
+            --arg url "$PROJECT_URL" \
+            --arg manifest "$MANIFEST_URL" \
+            --arg download "$DOWNLOAD_URL" \
+            '.url = $url | .manifest = $manifest | .download = $download' \
+            module.json > module.release.json
+          mv module.release.json module.json
+
+      - name: Create module archive
+        run: zip --recurse-paths module.zip module.json README.md CHANGELOG.md LICENSE scripts styles lang
+
+      - name: Attach installable release files
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          artifacts: module.json,module.zip
+          body: ${{ github.event.release.body }}
+          draft: ${{ github.event.release.unpublished }}
+          name: ${{ github.event.release.name }}
+          prerelease: ${{ github.event.release.prerelease }}
+          tag: ${{ github.event.release.tag_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-to-foundry:
+    if: github.event_name == 'release' && github.event.release.prerelease != true
+    needs: build-release
+    runs-on: ubuntu-latest
+    env:
+      FVTT_API_TOKEN: ${{ secrets.FVTT_API_TOKEN }}
+      TAG_NAME: ${{ github.event.release.tag_name }}
+      MANIFEST_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/module.json
+      NOTES_URL: https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md
+    steps:
+      - name: Publish stable version to Foundry VTT
+        shell: bash
+        run: |
+          if [[ -z "$FVTT_API_TOKEN" ]]; then
+            echo "FVTT_API_TOKEN is not configured; skipping Foundry package publication."
+            exit 0
+          fi
+          VERSION="${TAG_NAME#v}"
+          PAYLOAD="$(jq -n \
+            --arg version "$VERSION" \
+            --arg manifest "$MANIFEST_URL" \
+            --arg notes "$NOTES_URL" \
+            '{
+              id: "pf2e-guarder",
+              "dry-run": false,
+              release: {
+                version: $version,
+                manifest: $manifest,
+                notes: $notes,
+                compatibility: { minimum: "14", verified: "14", maximum: "" }
+              }
+            }')"
+          curl --fail-with-body \
+            --request POST \
+            --header "Authorization: $FVTT_API_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data "$PAYLOAD" \
+            https://foundryvtt.com/_api/packages/release_version/

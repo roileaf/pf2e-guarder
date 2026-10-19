@@ -1,0 +1,42 @@
+{
+  "PF2E_GUARDER": {
+    "Settings": {
+      "PromptOwner": "Guardian's player (GM when no player is online)",
+      "PromptGM": "Always the GM",
+      "ScopeTrigger": "Only the triggering damage types",
+      "ScopeAll": "The whole damage roll",
+      "interceptEnabled": {
+        "Name": "Intercept Attack prompts",
+        "Hint": "When an ally near a guardian takes physical damage (or energy damage with Energy Interceptor), ask the guardian whether to Intercept Attack and redirect the damage."
+      },
+      "interceptPromptTarget": {
+        "Name": "Who answers Intercept prompts",
+        "Hint": "Choose whether the guardian's player or the GM decides interceptions."
+      },
+      "interceptTimeout": {
+        "Name": "Intercept prompt timeout (seconds)",
+        "Hint": "An unanswered prompt counts as declining, and the ally takes the damage."
+      },
+      "interceptScope": {
+        "Name": "Damage the guardian takes",
+        "Hint": "Intercept Attack triggers on physical damage. Choose whether the guardian takes only those damage types (the ally keeps the rest) or the whole roll."
+      },
+      "interceptAutoMove": {
+        "Name": "Step into place automatically",
+        "Hint": "Move the guardian to the nearest open square adjacent to the ally on square grids. Guardians can still choose to move themselves."
+      },
+      "tauntEnabled": {
+        "Name": "Taunt automation",
+        "Hint": "Apply PF2e's Effect: Taunt to targeted enemies when a guardian uses Taunt, enforcing range, Group Taunt limits, and one taunt at a time."
+      },
+      "tauntOffGuard": {
+        "Name": "Taunt off-guard",
+        "Hint": "Make a taunted enemy off-guard when it attacks one of the guardian's allies instead of the guardian, and remind the GM when it casts spells."
+      },
+      "trackReactions": {
+        "Name": "Track guardian reactions",
+        "Hint": "Track each guardian's reactions in combat, including Ever Ready and Reaction Time guardian-only reactions, and show them in the combat tracker."
+      }
+    }
+  }
+}
