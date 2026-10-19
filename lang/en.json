@@ -1,5 +1,6 @@
 {
   "PF2E_GUARDER": {
+    "HamperingTerrain": "Hampering Stance terrain",
     "Settings": {
       "PromptOwner": "Guardian's player (GM when no player is online)",
       "PromptGM": "Always the GM",

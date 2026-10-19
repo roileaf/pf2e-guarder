@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Guardian reactions: Shield from Arrows / Shield from Spells, Reactive Shield, Clang!, Reactive Strike
+  (ranged attacks, manipulate actions, movement), Not So Fast!, Keep Up the Good Fight, Tough to Kill.
+- PF2e's own Shield Block button and reaction feats posted from the sheet now spend tracked reactions;
+  native Shield Block also grants Quick Vengeance.
+- Hampering Stance creates difficult terrain for enemies within 5 feet that follows the guardian.
+- pf2e-toolbelt integration: Target Helper targets decide Taunt off-guard on spells and actions.
+- Fix: Keep Up the Good Fight no longer misses when a character is briefly reported dead at 0 HP.
+- Fix: spells (context "spell-cast") now trigger Taunt handling and Reactive Strike on manipulate actions.
+
 ## 0.1.0
 
 - Intercept Attack: detect eligible guardians when an ally takes damage, prompt them (with a live GM override

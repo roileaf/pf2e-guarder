@@ -155,6 +155,8 @@ export function registerFollowUpButtons() {
   Hooks.on("renderChatMessageHTML", (message, html) => {
     // Attack cards retargeted by Unbelievable Interception.
     if (message.flags?.[MODULE_ID]?.retargeted) html.classList.add("guarder-retargeted");
+    // Attack cards re-graded by Shield from Arrows or Reactive Shield.
+    if (message.flags?.[MODULE_ID]?.outcomeChanged) html.classList.add("guarder-outcome-changed");
     for (const button of html.querySelectorAll("[data-guarder-followup]")) {
       const guardian = fromUuidSync(button.dataset.guardian);
       if (!guardian?.isOwner) {

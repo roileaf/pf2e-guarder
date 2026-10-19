@@ -22,6 +22,11 @@
     }
   ],
   "socket": true,
+  "documentTypes": {
+    "RegionBehavior": {
+      "hamperingTerrain": {}
+    }
+  },
   "relationships": {
     "systems": [
       {

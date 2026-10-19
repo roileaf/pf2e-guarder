@@ -16,13 +16,22 @@ export const AUTOMATED = Object.freeze({
   "quick-vengeance": "Quickened effect after Intercept Attack",
   "unbelievable-interception": "Mythic prompt on ally attacks, retargets the attack",
   bodyguard: "Charge picker in this panel; penalty handled by PF2e",
+  "shield-from-arrows": "Prompted when an adjacent ally is targeted by a ranged attack; re-grades it at +4 AC",
+  "shield-from-spells": "Extends Shield from Arrows to ranged spell attacks",
+  "reactive-shield": "Prompted when a melee Strike hits you; raises the shield and re-grades the attack",
+  clang: "Prompted on a critical miss against you: Strike, or Stride and make it off-guard",
+  "reactive-strike": "Prompted on ranged attacks, manipulate actions and movement within reach",
+  "not-so-fast": "Prompted with Reactive Strike while in Hampering Stance",
+  "hampering-stance": "5-foot difficult terrain for enemies that follows you; enables Not So Fast!",
+  "keep-up-the-good-fight": "Prompted at 0 HP: back to 1 HP, wounded +1, temporary HP",
+  "tough-to-kill": "First dying 3+ each day becomes dying 2",
 });
 
 export const NATIVE = Object.freeze([
   "guardians-armor", "area-armor", "shield-warfare", "raise-haft", "shield-your-eyes", "mighty-bulwark",
   "guardian-mastery", "unyielding-force", "unyielding-resolve", "battle-hardened", "perfect-protection",
   "demolish-defenses", "clobber", "proud-nail", "flying-tackle", "armor-break", "punishing-shove",
-  "sure-footed", "reflexive-shield", "shield-from-spells", "tough-to-kill", "weapon-expertise",
+  "sure-footed", "reflexive-shield", "weapon-expertise",
 ]);
 
 /** Status rows for the items an actor owns: { slug, name, status: automated|native|manual, detail }. */

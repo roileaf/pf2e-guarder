@@ -10,6 +10,7 @@ import {
   landSpeed, notify, sceneTokenFor, tokenDistance, tokenDocument,
 } from "./actors.js";
 import { attackFacts, getBehindMe, grantQuickVengeance } from "./followups.js";
+import { afterDamage } from "./guardian-reactions.js";
 import { moveAdjacent } from "./movement.js";
 import { combatantFor, reactionPool, reactionsLeft, spendReactions } from "./reactions.js";
 import { broadcast, registerListener, registerOperation, requestOperation } from "./socket.js";
@@ -356,16 +357,24 @@ export function registerInterceptAttack() {
   if (!prototype || prototype[WRAPPED]) return;
   const applyDamage = prototype.applyDamage;
   prototype.applyDamage = async function (options = {}, ...args) {
+    const hpBefore = this.hitPoints?.value ?? null;
+    const conditionsBefore = (this.itemTypes?.condition ?? []).map((condition) => condition.slug);
+    const apply = async (applied) => {
+      const result = await applyDamage.call(this, applied, ...args);
+      // Keep Up the Good Fight and native Shield Block react to the damage that actually landed.
+      void afterDamage(this, applied, hpBefore, conditionsBefore).catch((error) => console.error(`${MODULE_ID} | after damage`, error));
+      return result;
+    };
     let plan = null;
     try {
       plan = await planIntercept(this, options);
     } catch (error) {
       console.error(`${MODULE_ID} | could not check Intercept Attack`, error);
     }
-    if (!plan) return applyDamage.call(this, options, ...args);
+    if (!plan) return apply(options);
     const outcome = await runIntercept(this, options, plan);
-    if (!outcome) return applyDamage.call(this, options, ...args);
-    if (outcome.remainder) return applyDamage.call(this, { ...options, damage: outcome.remainder }, ...args);
+    if (!outcome) return apply(options);
+    if (outcome.remainder) return apply({ ...options, damage: outcome.remainder });
     return this;
   };
   prototype[WRAPPED] = true;

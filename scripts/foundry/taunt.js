@@ -7,6 +7,7 @@ import {
   escapeHtml, hasSlug, isAlly, isEnemy, notify, sameActor, sceneTokenFor, tauntEffects, tauntOrigin, tokenDistance, tokenDocument,
 } from "./actors.js";
 import { combatantFor } from "./reactions.js";
+import { messageTargets, targetsChanged } from "./toolbelt.js";
 import { isResponsibleGM, registerOperation, requestOperation } from "./socket.js";
 
 const ATTACK_TYPES = ["attack-roll", "spell-attack-roll"];
@@ -241,12 +242,34 @@ async function handleTauntedAttack(message) {
   }
 }
 
-async function remindTauntedSpell(message) {
+/**
+ * A taunted enemy's spell or action. With pf2e-toolbelt's Target Helper the affected creatures are known,
+ * so off-guard is decided automatically; otherwise the GM gets a reminder for spells.
+ */
+async function handleTauntedAction(message, { remind = true } = {}) {
   const item = message.item;
-  if (item?.type !== "spell" || message.flags?.pf2e?.context?.type) return;
+  // Spell cards carry context type "spell-cast"; anything else with a context type is a roll, not the action itself.
+  const contextType = message.flags?.pf2e?.context?.type;
+  if (!["spell", "action", "feat", "melee", "weapon"].includes(item?.type) || (contextType && contextType !== "spell-cast")) return;
   const enemy = message.actor;
   const guardians = enemy ? tauntingGuardians(enemy) : [];
   if (!guardians.length) return;
+  const targets = messageTargets(message);
+  if (targets?.length) {
+    const affected = targets.map((token) => token.actor).filter(Boolean);
+    for (const guardian of guardians) {
+      const triggers = tauntTriggersOffGuard({
+        guardianId: guardian.uuid,
+        affectedIds: affected.map((actor) => actor.uuid),
+        isAllyOfGuardian: (uuid) => affected.some((actor) => actor.uuid === uuid && isAlly(guardian, actor)),
+      });
+      if (triggers && await applyTauntOffGuard(enemy, guardian)) {
+        notify("info", `${enemy.name}'s ${item.name} targets ${guardian.name}'s allies but not ${guardian.name}: off-guard until its next turn. Enable the Taunt DC penalty toggle if it has a DC.`);
+      }
+    }
+    return;
+  }
+  if (!remind || item.type !== "spell") return;
   await ChatMessage.create({
     whisper: game.users.filter((user) => user.isGM).map((user) => user.id),
     speaker: { alias: "PF2e Guarder" },
@@ -293,7 +316,13 @@ export function registerTaunt() {
     }
     if (!isResponsibleGM(message.author?.id) || !setting("tauntOffGuard")) return;
     void handleTauntedAttack(message).catch((error) => console.error(`${MODULE_ID} | taunt off-guard`, error));
-    void remindTauntedSpell(message).catch((error) => console.error(`${MODULE_ID} | taunt reminder`, error));
+    void handleTauntedAction(message).catch((error) => console.error(`${MODULE_ID} | taunted action`, error));
+  });
+
+  // pf2e-toolbelt's "Set targets" can change a card's targets after it was posted.
+  Hooks.on("updateChatMessage", (message, changes, _options, userId) => {
+    if (!setting("tauntEnabled") || !setting("tauntOffGuard") || !targetsChanged(changes) || !isResponsibleGM(userId)) return;
+    void handleTauntedAction(message, { remind: false }).catch((error) => console.error(`${MODULE_ID} | taunted action`, error));
   });
 }
 

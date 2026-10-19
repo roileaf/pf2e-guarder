@@ -209,6 +209,44 @@ export function unbelievableCard(view) {
   </div>`;
 }
 
+/** Generic guardian reaction prompt: hero, optional threat strip, facts. Buttons come from the caller. */
+export function reactionPromptBody(view) {
+  const threat = view.attackerName
+    ? `<section class="guarder-threat">
+      <div class="guarder-figure">${portrait(view.attackerImg, view.attackerName)}<span>${escapeHtml(view.attackerName)}</span></div>
+      <div class="guarder-arrow"><div class="guarder-chips">${(view.chips ?? []).map((chip) => `<span class="guarder-chip">${chip.icon ? `<i class="${escapeHtml(chip.icon)}"></i>` : ""}${escapeHtml(chip.text)}</span>`).join("")}</div><i class="fa-solid fa-arrow-right-long"></i></div>
+      <div class="guarder-figure ally">${portrait(view.targetImg, view.targetName)}<span>${escapeHtml(view.targetName)}</span></div>
+    </section>`
+    : "";
+  const facts = (view.facts ?? []).map((fact) => `<li><i class="${escapeHtml(fact.icon ?? "fa-solid fa-circle-info")}"></i> ${escapeHtml(fact.text)}</li>`).join("");
+  return `<header class="guarder-hero">
+      ${portrait(view.guardianImg, view.guardianName, "large")}
+      <div class="guarder-identity">
+        <span class="guarder-eyebrow">${actionGlyph("R")} ${escapeHtml(view.eyebrow)}</span>
+        <h2>${escapeHtml(view.guardianName)}</h2>
+        <p>${reactionPips(view.pool)}</p>
+      </div>
+    </header>
+    ${threat}
+    ${facts ? `<ul class="guarder-facts">${facts}</ul>` : ""}`;
+}
+
+/** Generic guardian reaction chat card. */
+export function reactionCard(view) {
+  const notes = view.notes?.length ? `<ul class="guarder-card-notes">${view.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}</ul>` : "";
+  const chips = (view.chips ?? []).map((chip) => `<span class="guarder-chip ${escapeHtml(chip.class ?? "")}">${chip.icon ? `<i class="${escapeHtml(chip.icon)}"></i>` : ""}${escapeHtml(chip.text)}</span>`).join("");
+  return `<div class="guarder-card">
+    <header class="guarder-card-header">
+      ${portrait(view.guardianImg, view.guardianName)}
+      <div><span class="guarder-card-eyebrow">${view.glyph === null ? "" : `${actionGlyph(view.glyph ?? "R")} `}${escapeHtml(view.eyebrow)}</span>
+        <h3>${escapeHtml(view.headline)}</h3></div>
+    </header>
+    ${chips ? `<div class="guarder-card-chips">${chips}</div>` : ""}
+    ${notes}
+    <footer class="guarder-card-footer">Reactions left ${reactionPips(view.pool)}</footer>
+  </div>`;
+}
+
 /** GM whisper when a taunted enemy casts a spell. */
 export function tauntSpellCard(view) {
   const buttons = view.guardians.map((guardian) => `<button type="button" class="guarder-card-button" data-guarder-action="taunt-off-guard"

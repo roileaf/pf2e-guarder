@@ -78,7 +78,7 @@ function firstYes(prompts) {
   });
 }
 
-async function moveToward(guardianToken, attackerToken, budget) {
+export async function moveToward(guardianToken, attackerToken, budget) {
   const scene = guardianToken.parent;
   const size = Number(scene.grid?.size ?? 100) || 100;
   const others = [...scene.tokens].filter((token) => token.id !== guardianToken.id && !token.hidden).map(footprint);

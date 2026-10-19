@@ -40,6 +40,43 @@ every eligible guardian is asked whether to Intercept Attack:
   Strides twice toward the enemy, retargets the attack card to the guardian and compares the roll to the
   guardian's AC; on a miss, offers a Strike at mythic proficiency.
 
+### Guardian reactions
+
+Each reaction prompts the guardian's player (GM fallback) when its trigger happens, spends the tracked
+reaction, and posts a card. Foundry rolls attacks instantly, so reactions that change an attack re-grade
+the existing attack card and note the change on it.
+
+- **Shield from Arrows** (and **Shield from Spells**) — an adjacent ally is hit by a ranged attack while your
+  shield is raised: +4 AC against it.
+- **Reactive Shield** — a melee Strike hits you: Raise a Shield and re-grade with its AC bonus.
+- **Clang!** — an attack critically misses you: Strike, or Stride toward the enemy and make it off-guard
+  until the end of your next turn if you end adjacent.
+- **Reactive Strike** — a creature within reach makes a ranged attack, uses a manipulate action, or leaves a
+  square during movement (detected from Foundry's token movement). **Not So Fast!** is offered alongside it
+  while you're in Hampering Stance (posting the stance from the sheet starts it), with its Speed-penalty results.
+- **Keep Up the Good Fight** — an enemy drops you to 0 HP: back to 1 HP, wounded +1, temporary HP; once per hour.
+  Works with modules that auto-apply dying/unconscious at 0 HP (those are undone, wounded isn't doubled).
+- **Tough to Kill** — the first dying 3+ each day becomes dying 2, automatically.
+- Reactions used outside the module also count: PF2e's own **Shield Block** button (which also triggers
+  Quick Vengeance) and reaction feats posted from the sheet spend a tracked reaction.
+
+### Hampering Stance
+
+Posting Hampering Stance from the sheet starts the stance: a 5-foot emanation Region is attached to the
+guardian's token (it follows the token) and is difficult terrain for the guardian's enemies only. Ending the
+stance effect removes it. With pf2e-toolbelt active, Toolbelt's own difficult-terrain behavior is used
+("enemies" of the guardian); otherwise PF2e Guarder's own behavior type (reload the world once after
+installing so Foundry registers it).
+
+### pf2e-toolbelt integration
+
+- **Target Helper**: a taunted enemy's spells and actions use Toolbelt's recorded targets, so Taunt's off-guard
+  ("includes an ally but not you") is decided automatically instead of a GM reminder, and re-checked when the
+  targets are changed later with "Set targets".
+- Target Helper's per-target damage and Shield Block buttons go through PF2e's damage application, so Intercept
+  Attack prompts, Keep Up the Good Fight and reaction counting work from them unchanged.
+- Auto Cover's DC on attack cards is respected when Shield from Arrows / Reactive Shield re-grade an attack.
+
 ### Guardian panel
 
 A companion window like Commander's, opened from the actor sheet header, the token HUD, or
