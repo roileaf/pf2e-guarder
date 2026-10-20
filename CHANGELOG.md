@@ -6,8 +6,13 @@
   (ranged attacks, manipulate actions, movement), Not So Fast!, Keep Up the Good Fight, Tough to Kill.
 - PF2e's own Shield Block button and reaction feats posted from the sheet now spend tracked reactions;
   native Shield Block also grants Quick Vengeance.
-- Hampering Stance creates difficult terrain for enemies within 5 feet that follows the guardian.
+- Hampering Stance creates difficult terrain for enemies within 5 feet that follows the guardian, with an
+  Enter/End stance toggle in the Guardian panel. Areas are kept in sync on every scene the guardian has a
+  token on, and repaired on load if a GM client missed the change.
 - pf2e-toolbelt integration: Target Helper targets decide Taunt off-guard on spells and actions.
+- Sundry integration: spent reactions add Sundry's "Reaction Used" counter (restores remove one), without
+  double-counting what Sundry tracks itself.
+- Guardian panel reaction glyphs are clickable (spend lit / restore dimmed); stance cards have Enter/End buttons.
 - Fix: Keep Up the Good Fight no longer misses when a character is briefly reported dead at 0 HP.
 - Fix: spells (context "spell-cast") now trigger Taunt handling and Reactive Strike on manipulate actions.
 

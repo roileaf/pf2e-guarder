@@ -2,10 +2,13 @@ import { MODULE_ID, SLUGS } from "../constants.js";
 import { featureStatuses } from "../domain/features.js";
 import { BASE_INTERCEPT_RANGE } from "../domain/intercept.js";
 import { tauntLimits } from "../domain/taunt.js";
+import { initiativePool } from "../domain/reactions.js";
+import { HAMPERING_EFFECT, setHamperingStance } from "../foundry/hampering.js";
 import {
   hasCondition, hasSlug, isAlly, itemBySlug, notify, sameActor, sceneTokenFor, tauntEffects, tauntOrigin, tokenDistance,
 } from "../foundry/actors.js";
 import { reactionPool, setReactions } from "../foundry/reactions.js";
+import { sundryReactionRestored, sundryReactionUsed } from "../foundry/sundry.js";
 import { registerOperation, requestOperation } from "../foundry/socket.js";
 
 import { guardianPanelBody } from "./panel-view.js";
@@ -94,11 +97,20 @@ function viewModel(actor) {
     armor: heavyEnough ? { name: armor.name, resistance } : null,
     shield,
     pool: reactionPool(actor),
+    // Most reactions the guardian can hold at once (initiative: Ever Ready + Reaction Time).
+    poolMax: initiativePool({ everReady: hasSlug(actor, SLUGS.everReady), reactionTime: hasSlug(actor, SLUGS.reactionTime) }),
     taunted,
     hasTaunt: Boolean(itemBySlug(actor, SLUGS.taunt, "action")),
     tauntLimits: tauntLimits({ groupTaunt: hasSlug(actor, SLUGS.groupTaunt), longDistance: hasSlug(actor, SLUGS.longDistanceTaunt) }),
     bodyguard,
     allies,
+    stances: hasSlug(actor, "hampering-stance") ? [{
+      slug: "hampering-stance",
+      name: "Hampering Stance",
+      active: (actor.itemTypes?.effect ?? []).some((effect) => effect.slug === HAMPERING_EFFECT),
+      activeText: "Enemies within 5 ft treat the area as difficult terrain; Not So Fast! enabled",
+      inactiveText: "Not in stance",
+    }] : [],
     interceptFeatures,
     features: featureStatuses(actor.items),
   };
@@ -114,8 +126,8 @@ export class GuardianPanel extends foundry.applications.api.ApplicationV2 {
       tauntTargets: GuardianPanel.#tauntTargets,
       endTaunt: GuardianPanel.#endTaunt,
       raiseShield: GuardianPanel.#raiseShield,
-      spendReaction: GuardianPanel.#spendReaction,
-      restoreReaction: GuardianPanel.#restoreReaction,
+      toggleReaction: GuardianPanel.#toggleReaction,
+      toggleStance: GuardianPanel.#toggleStance,
     },
   };
 
@@ -166,21 +178,23 @@ export class GuardianPanel extends foundry.applications.api.ApplicationV2 {
     await requestOperation("taunt-apply", { guardianUuid: this.actor.uuid, guardianTokenUuid: null, itemUuid: null, apply: [], remove }, { gmRequired: true });
   }
 
+  static async #toggleStance() {
+    const active = (this.actor.itemTypes?.effect ?? []).some((effect) => effect.slug === HAMPERING_EFFECT);
+    await setHamperingStance(this.actor, !active).catch((error) => notify("error", error.message));
+  }
+
   static async #raiseShield() {
     await game.pf2e?.actions?.raiseAShield?.({ actors: [this.actor] });
   }
 
-  static async #spendReaction() {
+  /** A reaction glyph: a lit one is spent, a dimmed one restored. */
+  static async #toggleReaction(_event, target) {
     const pool = reactionPool(this.actor);
+    const kind = target.dataset.kind === "guardian" ? "guardian" : "general";
     if (!pool) return;
-    const next = pool.guardian > 0 ? { ...pool, guardian: pool.guardian - 1 } : { ...pool, general: Math.max(0, pool.general - 1) };
-    await setReactions(this.actor, next);
-  }
-
-  static async #restoreReaction() {
-    const pool = reactionPool(this.actor);
-    if (!pool) return;
-    await setReactions(this.actor, pool.general < 1 ? { ...pool, general: 1 } : { ...pool, guardian: pool.guardian + 1 });
+    const delta = target.dataset.spent === "true" ? 1 : -1;
+    await setReactions(this.actor, { ...pool, [kind]: Math.max(0, (pool[kind] ?? 0) + delta) });
+    await (delta < 0 ? sundryReactionUsed(this.actor) : sundryReactionRestored(this.actor)).catch(() => null);
   }
 
   async #setCharge(allyUuid) {

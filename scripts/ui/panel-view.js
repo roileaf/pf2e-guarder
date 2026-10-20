@@ -18,6 +18,27 @@ function empty(text) {
   return `<p class="guarder-empty">${escapeHtml(text)}</p>`;
 }
 
+/**
+ * One glyph per reaction slot: lit when available, dimmed when spent. For the GM each glyph is a
+ * button that spends (lit) or restores (dimmed) that reaction.
+ */
+export function reactionSlots(view) {
+  const slots = [];
+  for (const kind of ["general", "guardian"]) {
+    const available = Math.max(0, view.pool?.[kind] ?? 0);
+    const total = Math.max(available, view.poolMax?.[kind] ?? 0);
+    for (let index = 0; index < total; index++) slots.push({ kind, spent: index >= available });
+  }
+  return slots.map(({ kind, spent }) => {
+    const label = kind === "guardian" ? "Guardian-only reaction" : "Reaction";
+    const tooltip = `${label}${spent ? " (spent)" : ""}${view.isGM ? ` — click to ${spent ? "restore" : "spend"}` : ""}`;
+    const classes = `action-glyph ${kind}${spent ? " spent" : ""}`;
+    return view.isGM
+      ? `<button type="button" class="guarder-glyph-button ${classes}" data-action="toggleReaction" data-kind="${kind}" data-spent="${spent}" data-tooltip="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}">R</button>`
+      : `<span class="${classes}" data-tooltip="${escapeHtml(tooltip)}">R</span>`;
+  }).join("");
+}
+
 function heroBody(view) {
   const armor = view.armor
     ? `<span class="guarder-chip"><i class="fa-solid fa-shirt"></i> ${escapeHtml(view.armor.name)}${view.armor.resistance ? ` · physical ${view.armor.resistance}` : ""}</span>`
@@ -29,9 +50,7 @@ function heroBody(view) {
     ? `<button type="button" class="guarder-button subtle compact" data-action="raiseShield">${actionGlyph("1")}<span>Raise a Shield</span></button>`
     : "";
   const reactions = view.pool
-    ? `<span class="guarder-reaction-control">${reactionPips(view.pool)}${view.isGM ? `
-        <button type="button" class="guarder-icon-button" data-action="spendReaction" data-tooltip="Spend a reaction"><i class="fa-solid fa-minus"></i></button>
-        <button type="button" class="guarder-icon-button" data-action="restoreReaction" data-tooltip="Restore a reaction"><i class="fa-solid fa-plus"></i></button>` : ""}</span>`
+    ? `<span class="guarder-reaction-control">${reactionSlots(view)}</span>`
     : `<span class="guarder-muted">${reactionPips(null)} out of combat</span>`;
   return `<header class="guarder-hero">
       ${portrait(view.img, view.name, "large")}
@@ -69,6 +88,17 @@ function tauntBody(view) {
   return section("Taunt", actionGlyph("1"), `${rows}${limits}${charge}`, button);
 }
 
+function stanceBody(view) {
+  if (!view.stances?.length) return "";
+  const rows = view.stances.map((stance) => `<li class="guarder-row ${stance.active ? "in-range" : ""}">
+      <div class="guarder-row-text"><strong>${escapeHtml(stance.name)}</strong>
+        <small>${escapeHtml(stance.active ? stance.activeText : stance.inactiveText)}</small></div>
+      ${view.isOwner ? `<button type="button" class="guarder-button ${stance.active ? "subtle" : "primary"} compact" data-action="toggleStance" data-slug="${escapeHtml(stance.slug)}">
+        ${stance.active ? `<i class="fa-solid fa-xmark"></i><span>End stance</span>` : `${actionGlyph("1")}<span>Enter stance</span>`}</button>` : ""}
+    </li>`).join("");
+  return section("Stance", actionGlyph("1"), `<ul class="guarder-rows">${rows}</ul>`);
+}
+
 function interceptBody(view) {
   const allies = view.allies.length
     ? `<ul class="guarder-rows compact">${view.allies.map((ally) => `<li class="guarder-row ${ally.inRange ? "in-range" : "out-of-range"}">
@@ -94,6 +124,7 @@ export function guardianPanelBody(view) {
   return `<div class="guarder-panel">
     ${heroBody(view)}
     ${tauntBody(view)}
+    ${stanceBody(view)}
     ${interceptBody(view)}
     ${featuresBody(view)}
   </div>`;

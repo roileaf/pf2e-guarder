@@ -62,11 +62,14 @@ the existing attack card and note the change on it.
 
 ### Hampering Stance
 
-Posting Hampering Stance from the sheet starts the stance: a 5-foot emanation Region is attached to the
-guardian's token (it follows the token) and is difficult terrain for the guardian's enemies only. Ending the
-stance effect removes it. With pf2e-toolbelt active, Toolbelt's own difficult-terrain behavior is used
-("enemies" of the guardian); otherwise PF2e Guarder's own behavior type (reload the world once after
-installing so Foundry registers it).
+Posting Hampering Stance from the sheet (or the Enter/End button on its chat card, or the Guardian panel)
+starts the stance: a 5-foot emanation Region is attached to the guardian's token and follows it. Ending the
+stance removes it.
+
+- With **pf2e-toolbelt** active, the area uses Toolbelt's Difficult Terrain behavior set to affect only the
+  guardian's **enemies**, as the feat intends.
+- Without Toolbelt, it uses PF2e's native **Difficult Terrain** behavior. That behavior has no alliance filter,
+  so it slows everyone in the area, allies and the guardian included.
 
 ### pf2e-toolbelt integration
 
@@ -76,6 +79,13 @@ installing so Foundry registers it).
 - Target Helper's per-target damage and Shield Block buttons go through PF2e's damage application, so Intercept
   Attack prompts, Keep Up the Good Fight and reaction counting work from them unchanged.
 - Auto Cover's DC on attack cards is respected when Shield from Arrows / Reactive Shield re-grade an attack.
+
+### Sundry integration
+
+With **Sundry** active, reactions spent through Guarder also add Sundry's "Effect: Reaction Used" counter via
+`sundry.api.reactionUsed`, and restoring a reaction from the panel or tracker badge removes one. Reactions Sundry
+already counts on its own (reaction items posted to chat, and Strikes when its Reactive Strike tracking is on)
+are left to Sundry so nothing is counted twice.
 
 ### Guardian panel
 

@@ -733,3 +733,25 @@
   font-weight: 600;
 }
 .chat-message.guarder-outcome-changed .target-dc-result .degree-of-success { text-decoration: line-through; opacity: 0.55; }
+
+/* Panel reaction glyphs: each is a button for the GM (spend when lit, restore when dimmed). */
+.pf2e-guarder button.guarder-glyph-button {
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0 1px;
+  border: none;
+  background: none;
+  box-shadow: none;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease, filter 120ms ease;
+}
+
+.pf2e-guarder .guarder-reaction-control .action-glyph { font-size: 22px; line-height: 1; }
+.pf2e-guarder .guarder-reaction-control .action-glyph.general { color: var(--grd-accent-bright); }
+.pf2e-guarder .guarder-reaction-control .action-glyph.guardian { color: var(--grd-ember-bright); }
+.pf2e-guarder .guarder-reaction-control .action-glyph.spent { color: var(--grd-text-muted); opacity: 0.35; }
+.pf2e-guarder button.guarder-glyph-button:hover { transform: translateY(-1px); filter: drop-shadow(0 0 4px rgba(245, 162, 90, 0.6)); opacity: 1; }
+.pf2e-guarder button.guarder-glyph-button:focus-visible { outline: 2px solid var(--grd-accent-bright); outline-offset: 2px; border-radius: 4px; }

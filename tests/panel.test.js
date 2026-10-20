@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { featureStatuses } from "../scripts/domain/features.js";
-import { guardianPanelBody } from "../scripts/ui/panel-view.js";
+import { guardianPanelBody, reactionSlots } from "../scripts/ui/panel-view.js";
 
 test("feature statuses sort automated, native, then manual, and skip non-guardian items", () => {
   const rows = featureStatuses([
@@ -29,10 +29,20 @@ const view = {
   features: [{ slug: "intercept-attack", name: "Intercept Attack", status: "automated", detail: "x" }],
 };
 
+test("reaction glyphs are clickable slots: lit ones spend, dimmed ones restore", () => {
+  const html = reactionSlots({ pool: { general: 0, guardian: 1 }, poolMax: { general: 1, guardian: 2 }, isGM: true });
+  assert.equal((html.match(/data-action="toggleReaction"/g) ?? []).length, 3);
+  assert.match(html, /data-kind="general" data-spent="true"/);
+  assert.equal((html.match(/data-kind="guardian" data-spent="false"/g) ?? []).length, 1);
+  assert.equal((html.match(/data-kind="guardian" data-spent="true"/g) ?? []).length, 1);
+  const player = reactionSlots({ pool: { general: 1, guardian: 0 }, poolMax: { general: 1, guardian: 0 }, isGM: false });
+  assert.doesNotMatch(player, /toggleReaction/);
+});
+
 test("the panel shows taunts, bodyguard charge, allies and controls", () => {
   const html = guardianPanelBody(view);
   assert.match(html, /data-action="raiseShield"/);
-  assert.match(html, /data-action="spendReaction"/);
+  assert.match(html, /data-action="toggleReaction"/);
   assert.match(html, /data-action="endTaunt" data-effects="Actor\.o\.Item\.t"/);
   assert.match(html, /value="Actor\.b" selected/);
   assert.match(html, /in reach of Intercept/);
@@ -41,6 +51,6 @@ test("the panel shows taunts, bodyguard charge, allies and controls", () => {
 
 test("players see no GM reaction controls and no Raise a Shield on a raised shield", () => {
   const html = guardianPanelBody({ ...view, isGM: false, shield: { ...view.shield, raised: true } });
-  assert.doesNotMatch(html, /spendReaction/);
+  assert.doesNotMatch(html, /toggleReaction/);
   assert.doesNotMatch(html, /raiseShield/);
 });

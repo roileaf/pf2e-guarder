@@ -15,7 +15,8 @@ import { actorReach, grantQuickVengeance, strikeBack } from "./followups.js";
 import { combatantFor, reactionPool, reactionsLeft, spendReactions } from "./reactions.js";
 import { broadcast, isResponsibleGM, registerListener, registerOperation, requestOperation } from "./socket.js";
 import { moveToward } from "./unbelievable.js";
-import { HAMPERING_EFFECT } from "./hampering.js";
+import { sundryCountsPostedReactions, sundryCountsStrikes } from "./sundry.js";
+import { setHamperingStance } from "./hampering.js";
 
 const ATTACK_TYPES = ["attack-roll", "spell-attack-roll"];
 const KEEP_UP_EFFECT = "Compendium.pf2e.feat-effects.Item.AwJBbxeoE0YhmT57";
@@ -162,7 +163,7 @@ const RESOLVERS = {
   },
 
   async clang(guardian, payload) {
-    await spendReactions(guardian, 1);
+    await spendReactions(guardian, 1, { sundry: payload.choice !== "strike" || !sundryCountsStrikes() });
     const attackerToken = await fromUuid(payload.attackerTokenUuid);
     const guardianToken = await fromUuid(payload.guardianTokenUuid);
     const notes = [];
@@ -182,7 +183,7 @@ const RESOLVERS = {
   },
 
   async "reactive-strike"(guardian, payload) {
-    await spendReactions(guardian, 1);
+    await spendReactions(guardian, 1, { sundry: !sundryCountsStrikes() });
     const attackerToken = await fromUuid(payload.attackerTokenUuid);
     const roll = await strikeBack(guardian, attackerToken);
     const outcome = OUTCOMES[roll?.degreeOfSuccess ?? -1];
@@ -193,7 +194,7 @@ const RESOLVERS = {
   },
 
   async "not-so-fast"(guardian, payload) {
-    await spendReactions(guardian, 1);
+    await spendReactions(guardian, 1, { sundry: !sundryCountsStrikes() });
     const attackerToken = await fromUuid(payload.attackerTokenUuid);
     const roll = await strikeBack(guardian, attackerToken);
     const outcome = OUTCOMES[roll?.degreeOfSuccess ?? -1];
@@ -521,21 +522,10 @@ async function onStanceOrReactionPosted(message) {
   const item = message.item;
   const actor = message.actor;
   if (!item || !actor || actor.type !== "character" || message.flags?.pf2e?.context?.type) return;
-  if (item.slug === "hampering-stance" && !inHamperingStance(actor)) {
-    await actor.createEmbeddedDocuments("Item", [{
-      name: "Stance: Hampering Stance",
-      type: "effect",
-      img: item.img,
-      system: {
-        slug: HAMPERING_EFFECT,
-        description: { value: "<p>Squares within 5 feet are difficult terrain for enemies. Enables Not So Fast!</p>" },
-        duration: { expiry: null, sustained: false, unit: "encounter", value: -1 },
-        rules: [],
-        tokenIcon: { show: true },
-        traits: { rarity: "common", value: ["stance"] },
-      },
-    }]);
+  if (item.slug === "hampering-stance") {
+    if (!inHamperingStance(actor)) await setHamperingStance(actor, true);
     return;
   }
-  if (item.system?.actionType?.value === "reaction" && reactionPool(actor)) await spendReactions(actor, 1);
+  // Sundry's own tracker already marks reaction items posted to chat.
+  if (item.system?.actionType?.value === "reaction" && reactionPool(actor)) await spendReactions(actor, 1, { sundry: !sundryCountsPostedReactions() });
 }

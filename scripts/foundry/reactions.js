@@ -3,6 +3,7 @@ import { availableReactions, consumeReaction, describePool, initiativePool, turn
 import { setting } from "../settings.js";
 import { hasSlug, isGuardian } from "./actors.js";
 import { isResponsibleGM, registerOperation, requestOperation } from "./socket.js";
+import { sundryReactionUsed } from "./sundry.js";
 
 const FLAG_KEY = "reactions";
 
@@ -61,8 +62,12 @@ async function writePool(combatant, pool) {
  * Spend `count` guardian reactions in one write (a relayed write may not be visible locally
  * before a second read). Returns how many were actually available to spend.
  */
-export async function spendReactions(actor, count = 1) {
+export async function spendReactions(actor, count = 1, { sundry = true } = {}) {
   const combatant = combatantFor(actor);
+  // Sundry marks the used reaction on the combatant's actor; skipped when Sundry would count it itself.
+  if (sundry && combatant?.parent?.started && combatant.actor) {
+    void sundryReactionUsed(combatant.actor, count).catch((error) => console.warn("pf2e-guarder | Sundry", error));
+  }
   let pool = reactionPool(actor);
   if (!combatant || !pool) return count;
   let spent = 0;

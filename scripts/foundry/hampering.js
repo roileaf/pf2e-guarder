@@ -1,33 +1,14 @@
 import { MODULE_ID } from "../constants.js";
-import { isEnemy, notify, sceneTokenFor } from "./actors.js";
+import { notify } from "./actors.js";
 import { isResponsibleGM } from "./socket.js";
 
 // Hampering Stance: squares within 5 feet of the guardian are difficult terrain for the guardian's enemies.
-// A Region attached to the guardian's token follows it; a behavior subtype limits the terrain to enemies.
+// A Region attached to the guardian's token follows it, using pf2e-toolbelt's difficult terrain limited to
+// enemies when available, otherwise PF2e's native Difficult Terrain behavior.
 
 export const HAMPERING_EFFECT = "guarder-hampering-stance";
-export const BEHAVIOR_TYPE = `${MODULE_ID}.hamperingTerrain`;
 const REGION_FLAG = "hamperingStance";
 const RANGE = 5;
-
-/** Registered at init: PF2e's difficult-terrain behavior, applied only to enemies of the attached token. */
-export function registerHamperingTerrainBehavior() {
-  const Base = CONFIG.RegionBehavior?.dataModels?.modifyMovementCost;
-  if (!Base) return;
-  class HamperingTerrainBehaviorType extends Base {
-    _getTerrainEffects(token, segment, options) {
-      const guardian = this.region?.attachment?.token;
-      if (!guardian || token === guardian || token?.id === guardian.id) return [];
-      if (!guardian.actor || !token?.actor || !isEnemy(guardian.actor, token.actor)) return [];
-      return super._getTerrainEffects(token, segment, options);
-    }
-  }
-  CONFIG.RegionBehavior.dataModels[BEHAVIOR_TYPE] = HamperingTerrainBehaviorType;
-  CONFIG.RegionBehavior.typeIcons ??= {};
-  CONFIG.RegionBehavior.typeIcons[BEHAVIOR_TYPE] = "fa-solid fa-shield-halved";
-  CONFIG.RegionBehavior.typeLabels ??= {};
-  CONFIG.RegionBehavior.typeLabels[BEHAVIOR_TYPE] = "PF2E_GUARDER.HamperingTerrain";
-}
 
 function attachedRegions(token) {
   return [...(token?.parent?.regions ?? [])].filter((region) =>
@@ -37,9 +18,9 @@ function attachedRegions(token) {
 const TOOLBELT_TERRAIN = "pf2e-toolbelt.difficult-terrain";
 
 /**
- * The terrain behavior for the region. pf2e-toolbelt's difficult terrain already supports
- * "enemies of the origin actor"; otherwise Guarder's own subtype (needs the world reloaded once
- * after installing so Foundry registers the type).
+ * The terrain behavior for the region: pf2e-toolbelt's difficult terrain, which can affect only the
+ * guardian's enemies, or else PF2e's native Difficult Terrain (it has no alliance filter, so it slows
+ * everyone in the area, the guardian included).
  */
 function terrainBehavior(token) {
   // Stride (walk) on the ground; crawl and climb derive from it. Flying creatures are unaffected.
@@ -48,7 +29,7 @@ function terrainBehavior(token) {
   if (registered(TOOLBELT_TERRAIN)) {
     return { name: "Hampering Stance", type: TOOLBELT_TERRAIN, system: { affects: { alliance: "enemies", types: [] }, difficulties, origin: { actor: token.actor?.uuid ?? null } } };
   }
-  if (registered(BEHAVIOR_TYPE)) return { name: "Hampering Stance", type: BEHAVIOR_TYPE, system: { difficulties } };
+  if (registered("modifyMovementCost")) return { name: "Hampering Stance", type: "modifyMovementCost", system: { difficulties } };
   return null;
 }
 
@@ -56,7 +37,7 @@ async function createRegion(token) {
   if (!token || attachedRegions(token).length) return;
   const behavior = terrainBehavior(token);
   if (!behavior) {
-    notify("warn", "Hampering Stance: no region behavior available for difficult terrain. Reload the world after enabling PF2e Guarder.");
+    notify("warn", "Hampering Stance: no difficult terrain region behavior is available.");
     return;
   }
   const RegionDocument = CONFIG.Region.documentClass;
@@ -84,30 +65,121 @@ async function createRegion(token) {
   }]);
 }
 
-async function deleteRegions(actor) {
-  for (const scene of game.scenes ?? []) {
-    for (const token of scene.tokens) {
-      if (token.actor?.id !== actor.id) continue;
-      const ids = attachedRegions(token).map((region) => region.id);
-      if (ids.length) await scene.deleteEmbeddedDocuments("Region", ids);
+function inStance(actor) {
+  return (actor?.itemTypes?.effect ?? actor?.items?.filter?.((item) => item.type === "effect") ?? []).some(isStanceEffect);
+}
+
+function tokensOf(actor) {
+  return [...(game.scenes ?? [])].flatMap((scene) => [...scene.tokens].filter((token) =>
+    actor.isToken ? token.id === actor.token?.id : token.actorLink && token.actorId === actor.id));
+}
+
+let syncing = Promise.resolve();
+
+/**
+ * Make every token of `actor` match its stance: an attached area while in Hampering Stance, none otherwise.
+ * Serialized so overlapping triggers never create duplicate regions.
+ */
+export function syncHamperingRegions(actor) {
+  syncing = syncing.then(async () => {
+    const active = inStance(actor);
+    for (const token of tokensOf(actor)) {
+      const regions = attachedRegions(token);
+      if (active && !regions.length) await createRegion(token);
+      if (!active && regions.length) await token.parent.deleteEmbeddedDocuments("Region", regions.map((region) => region.id));
     }
+  }).catch((error) => notify("error", `Hampering Stance: ${error.message}`));
+  return syncing;
+}
+
+/** Turn Hampering Stance on or off for an actor (its owner may call this). */
+export async function setHamperingStance(actor, on) {
+  const existing = (actor.itemTypes?.effect ?? []).filter(isStanceEffect);
+  if (!on) {
+    if (existing.length) await actor.deleteEmbeddedDocuments("Item", existing.map((effect) => effect.id));
+    return;
   }
+  if (existing.length) return;
+  const feat = actor.items.find((item) => item.slug === "hampering-stance");
+  await actor.createEmbeddedDocuments("Item", [stanceEffectSource(feat)]);
+}
+
+export function stanceEffectSource(feat) {
+  return {
+    name: "Stance: Hampering Stance",
+    type: "effect",
+    img: feat?.img ?? "icons/svg/aura.svg",
+    system: {
+      slug: HAMPERING_EFFECT,
+      description: { value: "<p>Squares within 5 feet are difficult terrain for your enemies. Enables Not So Fast!</p>" },
+      duration: { expiry: null, sustained: false, unit: "encounter", value: -1 },
+      rules: [],
+      tokenIcon: { show: true },
+      traits: { rarity: "common", value: ["stance"] },
+    },
+  };
+}
+
+function isPrimaryGM() {
+  return game.users?.activeGM?.id === game.user.id;
 }
 
 function isStanceEffect(item) {
   return item?.type === "effect" && item.slug === HAMPERING_EFFECT;
 }
 
-/** The stance effect drives the region: created with it, deleted with it (GM side, behaviors are GM-only). */
+function isStanceCard(message) {
+  return message?.item?.slug === "hampering-stance" && Boolean(message.actor);
+}
+
+/** Enter/End button on Hampering Stance chat cards, reflecting the actor's current stance. */
+function decorateStanceCard(message, html) {
+  if (!isStanceCard(message) || !message.actor.isOwner) return;
+  html.querySelector("[data-guarder-action=hampering-stance]")?.remove();
+  const active = inStance(message.actor);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `guarder-card-button ${active ? "" : "primary"}`;
+  button.dataset.guarderAction = "hampering-stance";
+  button.innerHTML = active
+    ? `<i class="fa-solid fa-xmark"></i> End Hampering Stance`
+    : `<i class="fa-solid fa-shield-halved"></i> Enter Hampering Stance`;
+  button.addEventListener("click", () => void setHamperingStance(message.actor, !inStance(message.actor))
+    .catch((error) => notify("error", error.message)));
+  (html.querySelector(".card-content") ?? html.querySelector(".message-content"))?.append(button);
+}
+
+/** Re-render an actor's stance cards so their buttons show the current state. */
+function refreshStanceCards(actor) {
+  for (const message of (game.messages?.contents ?? []).slice(-50)) {
+    if (isStanceCard(message) && message.actor?.id === actor?.id) void ui.chat?.updateMessage?.(message);
+  }
+}
+
+/** Registered at load so cards rendered with the chat log get their button. */
+export function registerHamperingChat() {
+  Hooks.on("renderChatMessageHTML", decorateStanceCard);
+  const refresh = (item) => {
+    if (isStanceEffect(item) && item.parent) refreshStanceCards(item.parent);
+  };
+  Hooks.on("createItem", refresh);
+  Hooks.on("deleteItem", refresh);
+}
+
+/** The stance effect drives the areas; a GM keeps them in sync (region behaviors are GM-only). */
 export function registerHamperingStance() {
-  Hooks.on("createItem", (item, _options, userId) => {
-    if (!isStanceEffect(item) || !isResponsibleGM(userId) || !item.parent) return;
-    const token = sceneTokenFor(item.parent) ?? item.parent.getActiveTokens?.(true, true)?.[0];
-    if (!token) return;
-    void createRegion(token).catch((error) => notify("error", `Hampering Stance: ${error.message}`));
+  const onEffect = (item, _options, userId) => {
+    if (!isStanceEffect(item) || !item.parent || !isResponsibleGM(userId)) return;
+    void syncHamperingRegions(item.parent);
+  };
+  Hooks.on("createItem", onEffect);
+  Hooks.on("deleteItem", onEffect);
+  // A token placed later (another scene, re-dragged) gets its area too.
+  Hooks.on("createToken", (token, _options, userId) => {
+    if (token.actor && isResponsibleGM(userId) && inStance(token.actor)) void syncHamperingRegions(token.actor);
   });
-  Hooks.on("deleteItem", (item, _options, userId) => {
-    if (!isStanceEffect(item) || !isResponsibleGM(userId) || !item.parent) return;
-    void deleteRegions(item.parent).catch((error) => notify("error", `Hampering Stance: ${error.message}`));
-  });
+  // Repair anything missed while no up-to-date GM was connected.
+  if (isPrimaryGM()) {
+    for (const actor of game.actors ?? []) if (inStance(actor) || tokensOf(actor).some((token) => attachedRegions(token).length)) void syncHamperingRegions(actor);
+  }
 }

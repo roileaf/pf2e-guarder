@@ -3,6 +3,7 @@ import { describePool } from "../domain/reactions.js";
 import { setting } from "../settings.js";
 import { isGuardian, notify } from "../foundry/actors.js";
 import { reactionPool, setReactions } from "../foundry/reactions.js";
+import { sundryReactionRestored, sundryReactionUsed } from "../foundry/sundry.js";
 import { reactionPips } from "./views.js";
 
 function badge(combatant) {
@@ -25,7 +26,9 @@ function badge(combatant) {
       else if (next.general > 0) next.general--;
     } else if (next.general < 1) next.general++;
     else next.guardian++;
+    const changed = next.general !== current.general || next.guardian !== current.guardian;
     await setReactions(combatant.actor, next).catch((error) => notify("error", error.message));
+    if (changed) await (delta < 0 ? sundryReactionUsed(combatant.actor) : sundryReactionRestored(combatant.actor)).catch(() => null);
   };
   element.addEventListener("click", change(-1));
   element.addEventListener("contextmenu", change(1));
