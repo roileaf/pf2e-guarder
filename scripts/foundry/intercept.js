@@ -12,6 +12,7 @@ import {
 import { attackFacts, getBehindMe, grantQuickVengeance } from "./followups.js";
 import { afterDamage } from "./guardian-reactions.js";
 import { duringShieldBlock } from "./feats.js";
+import { afterShieldBlock } from "./feat-actions.js";
 import { moveAdjacent, pickAdjacent } from "./movement.js";
 import { combatantFor, reactionPool, reactionsLeft, spendReactions } from "./reactions.js";
 import { broadcast, registerListener, registerOperation, requestOperation } from "./socket.js";
@@ -329,6 +330,9 @@ async function resolveIntercept(payload) {
     outcome: payload.outcome,
     [INTERCEPTED]: true,
   });
+  if (payload.shieldBlock && attackerToken) {
+    void afterShieldBlock(guardian, tokenDoc, attackerToken).catch((error) => notify("error", `Shield Block follow-up: ${error.message}`));
+  }
   // The square picker waits on the player, so it runs after the damage is settled and the
   // requesting client has its answer; a slow choice can never double-apply the damage.
   if (moveAlly) {

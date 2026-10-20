@@ -5,6 +5,16 @@ const SQUARE = (s, key) => `${s[key].col},${s[key].row}`;
 const adjacent = (a, b) => Math.max(Math.abs(a.col - b.col), Math.abs(a.row - b.row)) === 1;
 const poolLeft = (s) => (s.pool?.general ?? 0) + (s.pool?.guardian ?? 0);
 const hasCard = (s, card, text = '') => s.messages.some(m => m.card === card && m.text.includes(text));
+const featCard = (s, feat) => s.messages.findLast(m => m.card === 'feat' && m.feat === feat);
+const guardianAttacks = (s, guardianId) => s.messages.filter(m => m.type === 'attack-roll' && m.speaker === guardianId);
+const savesBy = (s, actorUuid) => s.messages.filter(m => m.type === 'saving-throw' && actorUuid.endsWith(m.speaker));
+const conditionValue = (side, slug) => side.conditions.find(c => c.slug === slug)?.value ?? (side.conditions.some(c => c.slug === slug) ? true : null);
+// The feat actions post the feat's own card from the player's sheet, with the enemy targeted.
+async function useFeat(ctx, h, slug, targets = ['enemy']) {
+  await ctx.rpc(ctx.player, 'postItem', { slug, type: 'feat', targets });
+  await h.until(`${slug} card posted`, s => Boolean(featCard(s, slug)));
+  return h.state();
+}
 
 function helpers(ctx) {
   const { gm, rpc, check, eventually } = ctx;
@@ -22,6 +32,7 @@ function helpers(ctx) {
     check(`No "${title}" prompt`, await prompt(page, title).count() === 0);
   }
   const arrange = spec => rpc(gm, 'arrange', { spec });
+  // Panel buttons get the click event directly: in a long run other windows can sit on top of the panel.
   const panel = page => page.locator('[id^="pf2e-guarder-panel-"]');
   const settle = async () => check('Triggering damage settled', (await rpc(gm, 'settle')) !== 'timeout');
   return { state, until, prompt, choose, noPrompt, arrange, panel, settle };
@@ -310,6 +321,7 @@ const CASES = [
       await ctx.rpc(ctx.gm, 'damage', { target: 'guardian', formula: '200[bludgeoning]' });
       await h.settle();
       await h.choose(ctx.player, 'Keep Up the Good Fight', 'go');
+      await h.until('Keep Up the Good Fight card posted', s => hasCard(s, 'reaction', 'Keep Up the Good Fight'));
       await h.until('Guardian back at 1 HP, wounded, not dying', s => s.guardian.hp === 1 && s.guardian.conditions.some(c => c.slug === 'wounded')
         && !s.guardian.conditions.some(c => ['dying', 'unconscious'].includes(c.slug)));
       const s = await h.state();
@@ -344,7 +356,7 @@ const CASES = [
       await ctx.rpc(ctx.player, 'postItem', { slug: 'taunt', targets: ['enemy'] });
       await h.until('Enemy taunted by the guardian', s => s.enemy.tauntedBy.includes(s.guardian.uuid));
       await ctx.eventually('Panel lists the taunted enemy', async () => await h.panel(ctx.player).locator('[data-action="endTaunt"]').count() === 1);
-      await h.panel(ctx.player).locator('[data-action="endTaunt"]').click();
+      await h.panel(ctx.player).locator('[data-action="endTaunt"]').dispatchEvent('click');
       await h.until('End removes the taunt', s => !s.enemy.tauntedBy.length);
     } },
   { name: 'taunt-limits', description: 'One taunt at a time; Group Taunt keeps several.',
@@ -441,7 +453,7 @@ const CASES = [
       await toggle.click();
       await h.until('Panel enters the stance', s => s.guardian.effects.includes('guarder-hampering-stance') && s.regions.length === 1);
       await ctx.screenshot('stance');
-      await h.panel(ctx.player).locator('[data-action="toggleStance"]').click();
+      await h.panel(ctx.player).locator('[data-action="toggleStance"]').dispatchEvent('click');
       await h.until('Panel ends the stance', s => !s.guardian.effects.includes('guarder-hampering-stance') && !s.regions.length);
     } },
   // ------------------------------------------------------------ Panel, tracker, reactions
@@ -453,7 +465,14 @@ const CASES = [
       const sheet = ctx.player.locator('.app.sheet, .application.sheet').filter({ hasText: 'QA Guardian' }).first();
       await sheet.waitFor({ state: 'visible' });
       // PF2e's character sheet is an Application V1: a header button with the control's class.
-      await ctx.player.locator('.window-header a.pf2e-guarder-panel').first().click();
+      // The sheet animates open; a click during the animation can miss, so retry until the panel shows.
+      const header = ctx.player.locator('.window-header a.pf2e-guarder-panel').first();
+      await header.waitFor({ state: 'visible' });
+      for (let attempt = 0; attempt < 3 && !(await h.panel(ctx.player).isVisible()); attempt++) {
+        await ctx.player.waitForTimeout(400);
+        await header.click();
+        await h.panel(ctx.player).waitFor({ state: 'visible', timeout: 4000 }).catch(() => null);
+      }
       await h.panel(ctx.player).waitFor({ state: 'visible' });
       ctx.check('Panel shows the guardian', /QA Guardian/.test(await h.panel(ctx.player).innerText()));
       await ctx.screenshot('header');
@@ -469,10 +488,10 @@ const CASES = [
       await h.arrange({});
       await ctx.rpc(ctx.gm, 'openPanel');
       const glyph = spent => h.panel(ctx.gm).locator(`[data-action="toggleReaction"][data-spent="${spent}"]`).first();
-      await glyph(false).click();
+      await glyph(false).dispatchEvent('click');
       await h.until('Glyph click spends one', s => poolLeft(s) === 1);
       await ctx.screenshot('spent');
-      await glyph(true).click();
+      await glyph(true).dispatchEvent('click');
       await h.until('Spent glyph click restores it', s => poolLeft(s) === 2);
     } },
   { name: 'bodyguard', description: 'Panel Bodyguard charge applies PF2e\'s Effect: Bodyguard to the ally.',
@@ -526,10 +545,10 @@ const CASES = [
       const card = ctx.player.locator('[data-guarder-action="stance"][data-stance="paragons-guard"]').last();
       await ctx.eventually('Card offers End Paragon\'s Guard', async () => /End Paragon/.test(await card.innerText()));
       await ctx.screenshot('stance');
-      await h.panel(ctx.player).locator('[data-action="toggleStance"][data-slug="hampering-stance"]').click();
+      await h.panel(ctx.player).locator('[data-action="toggleStance"][data-slug="hampering-stance"]').dispatchEvent('click');
       await h.until('Hampering Stance replaces Paragon\'s Guard', s => s.guardian.effects.includes('guarder-hampering-stance')
         && !s.guardian.effects.includes('guarder-paragons-guard') && !s.guardian.shield.raised);
-      await h.panel(ctx.player).locator('[data-action="toggleStance"][data-slug="paragons-guard"]').click();
+      await h.panel(ctx.player).locator('[data-action="toggleStance"][data-slug="paragons-guard"]').dispatchEvent('click');
       await h.until('Panel switches back to Paragon\'s Guard', s => s.guardian.effects.includes('guarder-paragons-guard') && !s.guardian.effects.includes('guarder-hampering-stance'));
     } },
   { name: 'tough-cookie', description: 'Tough Cookie: half-max temporary HP at half HP or less, once per day, with an override prompt.',
@@ -570,6 +589,244 @@ const CASES = [
       await h.until('Chosen stance entered', s => s.guardian.effects.includes('guarder-paragons-guard') && s.guardian.shield.raised);
       await ctx.rpc(ctx.gm, 'setInitiative', { value: 12 });
       await h.noPrompt(ctx.player, 'Opening Stance');
+    } },
+  // ------------------------------------------------------------ Feat actions
+  { name: 'feat-taunting-strike', description: 'Taunting Strike Strikes and then Taunts the target; Shielding Taunt raises the shield and Taunts.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['taunting-strike', 'shielding-taunt'], positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
+      let s = await useFeat(ctx, h, 'taunting-strike');
+      ctx.check('Taunting Strike rolled a Strike', guardianAttacks(s, ctx.fixture.guardian).length === 1);
+      ctx.check('Taunting Strike taunted the target', s.enemy.tauntedBy.includes(s.guardian.uuid));
+      await h.arrange({ feats: ['shielding-taunt'], positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
+      s = await useFeat(ctx, h, 'shielding-taunt');
+      ctx.check('Shielding Taunt raised the shield and taunted', s.guardian.shield.raised && s.enemy.tauntedBy.includes(s.guardian.uuid));
+    } },
+  { name: 'feat-shield-wallop', description: 'Shield Wallop stupefies on a hit; Devastating Shield Wallop applies its save result.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['shield-wallop', 'devastating-shield-wallop'], attackBonus: 40, saveMalus: -40, positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
+      const s = await useFeat(ctx, h, 'shield-wallop');
+      const attack = guardianAttacks(s, ctx.fixture.guardian).at(-1);
+      ctx.check('Shield Strike hit', attack && attack.degree >= 2);
+      await h.until('Stupefied by degree', x => x.enemy.effects.some(e => e.startsWith('guarder-shield-wallop'))
+        && conditionValue(x.enemy, 'stupefied') === (attack.degree === 3 ? 2 : 1));
+      const save = savesBy(await h.state(), s.enemy.uuid).at(-1);
+      ctx.check('Devastating Shield Wallop save rolled', save && save.degree !== null);
+      const x = await h.state();
+      const expected = { 2: () => x.enemy.effects.some(e => e.startsWith('guarder-devastating')), 1: () => conditionValue(x.enemy, 'prone'), 0: () => conditionValue(x.enemy, 'prone') && conditionValue(x.enemy, 'stunned') === 1, 3: () => true }[save.degree];
+      await h.until('Devastating result applied for the save rolled', y => { void y; return expected(); });
+    } },
+  { name: 'feat-weakening-assault', description: 'Weakening Assault: two Strikes at a taunted enemy, enfeebled by hits.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['weakening-assault'], attackBonus: 40, taunted: ['enemy'], positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
+      const s = await useFeat(ctx, h, 'weakening-assault');
+      const hits = guardianAttacks(s, ctx.fixture.guardian).slice(-2).filter(a => a.degree >= 2).length;
+      ctx.check('Two Strikes rolled', guardianAttacks(s, ctx.fixture.guardian).length >= 2);
+      await h.until('Enfeebled 1 or 3 by hits', x => conditionValue(x.enemy, 'enfeebled') === (hits >= 2 ? 3 : hits === 1 ? 1 : null));
+    } },
+  { name: 'feat-ring-their-bell', description: 'Ring Their Bell: fist Strike at a taunted off-guard enemy, stunned by the incapacitation save.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['ring-their-bell'], attackBonus: 40, saveMalus: -40, taunted: ['enemy'], positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
+      await ctx.rpc(ctx.gm, 'attack', { target: 'ally', total: 5, dc: 18, outcome: 'failure' });
+      await h.until('Taunted enemy off-guard for attacking an ally', x => x.enemy.effects.includes('effect-taunted-off-guard'));
+      const s = await useFeat(ctx, h, 'ring-their-bell');
+      const save = savesBy(s, s.enemy.uuid).at(-1);
+      ctx.check('Incapacitation save rolled after the hit', save && save.degree !== null);
+      const stunned = { 3: null, 2: 1, 1: 2, 0: 3 }[save.degree];
+      await h.until('Stunned by the save', x => conditionValue(x.enemy, 'stunned') === stunned);
+    } },
+  { name: 'feat-bloody-denial', description: 'Bloody Denial: Strike, save (worse on a crit), no-reactions effect.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['bloody-denial'], attackBonus: 40, saveMalus: -40, positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
+      const s = await useFeat(ctx, h, 'bloody-denial');
+      const save = savesBy(s, s.enemy.uuid).at(-1);
+      ctx.check('Save rolled after the hit', save && save.degree !== null);
+      await h.until('No-reactions effect applied', x => save.degree === 3 || x.enemy.effects.some(e => e.startsWith('guarder-bloody-denial')));
+    } },
+  { name: 'feat-shoulder-check', description: 'Shoulder Check: fist Strike with off-guard results by degree.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['shoulder-check'], attackBonus: 40, positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
+      const s = await useFeat(ctx, h, 'shoulder-check');
+      const attack = guardianAttacks(s, ctx.fixture.guardian).at(-1);
+      ctx.check('Fist Strike hit', attack && attack.degree >= 2);
+      await h.until('Target off-guard from Shoulder Check', x => x.enemy.effects.some(e => e.startsWith('guarder-shoulder-check')));
+    } },
+  { name: 'feat-stomp-ground', description: 'Stomp Ground: Reflex saves within 5 ft, prone on a failure.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['stomp-ground'], saveMalus: -40, positions: { guardian: [4, 6], ally: [12, 9], enemy: [5, 6], enemy2: [3, 6] } });
+      const s = await useFeat(ctx, h, 'stomp-ground', []);
+      ctx.check('Both adjacent creatures saved', savesBy(s, s.enemy.uuid).length >= 1);
+      await h.until('Failed saves knock creatures prone', x => conditionValue(x.enemy, 'prone') && conditionValue(x.enemy2, 'prone'));
+      ctx.check('Far ally unaffected', !conditionValue((await h.state()).ally, 'prone'));
+    } },
+  { name: 'feat-armored-courage', description: 'Armored Courage: temporary HP equal to level, frightened reduced, once per hour.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['armored-courage'] });
+      await ctx.rpc(ctx.gm, 'setCondition', { key: 'guardian', slug: 'frightened', value: 2 });
+      const s = await useFeat(ctx, h, 'armored-courage', []);
+      await h.until('Temporary HP equal to level', x => x.guardian.temp === 3 && x.guardian.effects.includes('guarder-armored-courage'));
+      ctx.check('Frightened reduced by 1', conditionValue((await h.state()).guardian, 'frightened') === 1);
+      void s;
+      await ctx.rpc(ctx.player, 'postItem', { slug: 'armored-courage', type: 'feat', targets: [] });
+      await h.prompt(ctx.player, 'Armored Courage').first().waitFor({ state: 'visible' });
+      await h.choose(ctx.player, 'Armored Courage', 'cancel');
+    } },
+  { name: 'feat-lock-down-belly-flop', description: 'Lock Down in Hampering Stance and Belly Flop on a prone enemy.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['lock-down', 'hampering-stance'], stance: true, attackBonus: 40, positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
+      await useFeat(ctx, h, 'lock-down');
+      await h.until('Locked down', x => x.enemy.effects.some(e => e.startsWith('guarder-lock-down')));
+      await h.arrange({ feats: ['belly-flop'], attackBonus: 40, prone: ['enemy'], positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
+      await useFeat(ctx, h, 'belly-flop');
+      await h.until('Guardian prone, target immobilized', x => conditionValue(x.guardian, 'prone') && conditionValue(x.enemy, 'immobilized'));
+    } },
+  { name: 'feat-momentum-strike', description: 'Momentum Strike: on a hit the player picks the target\'s square within reach.',
+    async run(ctx, h) {
+      const start = await h.arrange({ feats: ['momentum-strike'], attackBonus: 40, positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
+      await ctx.rpc(ctx.player, 'postItem', { slug: 'momentum-strike', type: 'feat', targets: ['enemy'] });
+      await ctx.player.waitForTimeout(2500);
+      await ctx.screenshot('picker');
+      await ctx.player.keyboard.press('Enter');
+      await h.until('Target moved and still within reach', x => SQUARE(x, 'enemy') !== SQUARE(start, 'enemy')
+        && Math.max(Math.abs(x.enemy.col - x.guardian.col), Math.abs(x.enemy.row - x.guardian.row)) <= 1);
+    } },
+  { name: 'feat-movement-buttons', description: 'Defensive Advance raises the shield and its card Strikes an enemy in reach.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['defensive-advance'], positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
+      const s = await useFeat(ctx, h, 'defensive-advance', []);
+      ctx.check('Shield raised', s.guardian.shield.raised);
+      const button = ctx.player.locator('[data-guarder-followup="strike-in-reach"]').last();
+      await button.waitFor({ state: 'visible' });
+      await button.click();
+      await h.until('Card button Strikes the enemy in reach', x => guardianAttacks(x, ctx.fixture.guardian).some(a => a.target === x.enemy.uuid));
+    } },
+  { name: 'feat-shield-block-follow-ups', description: 'Aggressive Block (GM picks off-guard) and Repositioning Block button after Shield Block.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['aggressive-block', 'repositioning-block'], shieldRaised: true, positions: { guardian: [4, 6], ally: [12, 9], enemy: [5, 6] } });
+      await ctx.rpc(ctx.gm, 'damage', { target: 'guardian', formula: '12[slashing]', shieldBlock: true });
+      await h.settle();
+      await h.prompt(ctx.gm, 'Aggressive Block').first().waitFor({ state: 'visible' });
+      await ctx.screenshot('aggressive');
+      await h.choose(ctx.gm, 'Aggressive Block', 'off-guard');
+      await h.until('Attacker off-guard from Aggressive Block', x => x.enemy.effects.some(e => e.startsWith('guarder-aggressive-block')));
+      await ctx.player.locator('[data-guarder-followup="reposition"]').last().waitFor({ state: 'visible' });
+    } },
+  { name: 'feat-covering-stance', description: 'Covering Stance: at the end of the guardian\'s turn, an adjacent ally gets lesser cover until it moves away.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['covering-stance'], positions: { guardian: [4, 6], ally: [5, 6], enemy: [9, 6] } });
+      await ctx.rpc(ctx.player, 'postItem', { slug: 'covering-stance', type: 'feat', targets: [] });
+      await h.until('Covering Stance entered', x => x.guardian.effects.includes('guarder-covering-stance'));
+      await ctx.rpc(ctx.gm, 'advanceTurnTo', { key: 'guardian' });
+      await ctx.rpc(ctx.gm, 'advanceTurnTo', { key: 'ally' });
+      await h.prompt(ctx.player, 'Covering Stance').first().waitFor({ state: 'visible' });
+      await h.choose(ctx.player, 'Covering Stance', (await h.state()).ally.token);
+      await h.until('Ally has lesser cover', x => x.ally.effects.includes('guarder-covering-stance-cover'));
+      await ctx.rpc(ctx.gm, 'moveToken', { key: 'ally', col: 9, row: 9 });
+      await h.until('Cover lost after moving away', x => !x.ally.effects.includes('guarder-covering-stance-cover'));
+    } },
+  { name: 'feat-shield-moves', description: 'Guarded Advance, Shielded Attrition and Blanket Defense raise the shield (with reminder effects).',
+    async run(ctx, h) {
+      for (const [slug, effect] of [['guarded-advance', null], ['shielded-attrition', 'guarder-shielded-attrition'], ['blanket-defense', 'guarder-blanket-defense']]) {
+        await h.arrange({ feats: [slug] });
+        const s = await useFeat(ctx, h, slug, []);
+        ctx.check(`${slug} raised the shield`, s.guardian.shield.raised);
+        if (effect) await h.until(`${slug} reminder effect`, x => x.guardian.effects.includes(effect));
+      }
+    } },
+  { name: 'feat-juggernaut-charge', description: 'Juggernaut Charge: the card Strikes an enemy in reach after the guardian moves.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['juggernaut-charge'], positions: { guardian: [2, 6], ally: [2, 9], enemy: [8, 6] } });
+      await useFeat(ctx, h, 'juggernaut-charge', []);
+      await ctx.rpc(ctx.gm, 'moveToken', { key: 'guardian', col: 7, row: 6 });
+      await ctx.player.locator('[data-guarder-followup="strike-in-reach"]').last().click();
+      await h.until('Strike at the enemy now in reach', x => guardianAttacks(x, ctx.fixture.guardian).some(a => a.target === x.enemy.uuid));
+    } },
+  { name: 'feat-retaliating-rescue', description: 'Retaliating Rescue: push an adjacent ally 5 ft (picker), then Strike with +2.',
+    async run(ctx, h) {
+      const start = await h.arrange({ feats: ['retaliating-rescue'], positions: { guardian: [4, 6], ally: [5, 6], enemy: [5, 5] } });
+      await useFeat(ctx, h, 'retaliating-rescue', []);
+      await ctx.player.locator('[data-guarder-followup="push-ally"]').last().click();
+      await ctx.player.waitForTimeout(800);
+      await ctx.player.keyboard.press('Enter');
+      await h.until('Ally pushed 5 feet', x => SQUARE(x, 'ally') !== SQUARE(start, 'ally'));
+      await ctx.player.locator('[data-guarder-followup="strike-in-reach"][data-bonus="2"]').last().click();
+      await h.until('Strike carries the +2', x => guardianAttacks(x, ctx.fixture.guardian).some(a => a.modifiers.includes('retaliating-rescue')));
+    } },
+  { name: 'feat-scattering-charge', description: 'Scattering Charge: Shove up to three creatures in reach from the card.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['scattering-charge'], positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6], enemy2: [5, 7] } });
+      await useFeat(ctx, h, 'scattering-charge', []);
+      await ctx.player.locator('[data-guarder-followup="shove-in-reach"]').last().click();
+      const choose = h.prompt(ctx.player, 'Shove which creatures?').first();
+      await choose.waitFor({ state: 'visible' });
+      for (const box of await choose.locator('input[name="pick"]').all()) await box.check({ force: true });
+      await ctx.screenshot('choose');
+      await choose.locator('[data-action="choose"][data-value="ok"]').click();
+      await h.until('Two Shove checks rolled', x => x.messages.filter(m => m.type === 'skill-check' && m.speaker === ctx.fixture.guardian && /shove/i.test(`${m.flavor} ${m.text}`)).length >= 2);
+    } },
+  { name: 'feat-aggressive-block-shove', description: 'Aggressive Block: when the GM picks "shoved", the attacker moves 5 ft straight back.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['aggressive-block'], shieldRaised: true, positions: { guardian: [4, 6], ally: [12, 9], enemy: [5, 6] } });
+      await ctx.rpc(ctx.gm, 'damage', { target: 'guardian', formula: '12[slashing]', shieldBlock: true });
+      await h.settle();
+      await h.choose(ctx.gm, 'Aggressive Block', 'shove');
+      await h.until('Attacker shoved one square away', x => x.enemy.col === 6 && x.enemy.row === 6);
+    } },
+  { name: 'feat-repositioning-block', description: 'Repositioning Block: the card button rolls PF2e\'s Reposition against the attacker.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['repositioning-block'], shieldRaised: true, positions: { guardian: [4, 6], ally: [12, 9], enemy: [5, 6] } });
+      await ctx.rpc(ctx.gm, 'damage', { target: 'guardian', formula: '12[slashing]', shieldBlock: true });
+      await h.settle();
+      const button = ctx.player.locator('[data-guarder-followup="reposition"]').last();
+      await button.waitFor({ state: 'visible' });
+      await button.click();
+      await h.until('Reposition check rolled', x => x.messages.some(m => m.type === 'skill-check' && m.speaker === ctx.fixture.guardian && /reposition/i.test(`${m.flavor} ${m.text}`)));
+    } },
+  { name: 'opening-stance-other', description: 'Opening Stance offers stances Guarder doesn\'t run, posting their card.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['opening-stance'], extraStance: true });
+      await ctx.rpc(ctx.gm, 'setInitiative', { value: 17 });
+      await h.choose(ctx.player, 'Opening Stance', 'qa-stance');
+      await h.until('The stance\'s card is posted', x => x.messages.some(m => m.item === 'qa-stance'));
+    } },
+  // ------------------------------------------------------------ GM side: a guardian with no player
+  { name: 'gm-intercept', description: 'No player: the GM gets the Intercept prompt (no override board) and the Get Behind Me! picker.',
+    async run(ctx, h) {
+      const start = await h.arrange({ gmOnly: true, feats: ['get-behind-me'], positions: { guardian: [4, 6], ally: [5, 6], enemy: [7, 6] } });
+      await ctx.rpc(ctx.gm, 'damage', { formula: '8[slashing]' });
+      await h.prompt(ctx.gm, 'Intercept Attack').first().waitFor({ state: 'visible' });
+      ctx.check('No override board when the GM answers', await h.prompt(ctx.gm, 'Intercept Attack — GM').count() === 0);
+      ctx.check('The player is not asked', await h.prompt(ctx.player, 'Intercept Attack').count() === 0);
+      await ctx.screenshot('prompt');
+      await h.choose(ctx.gm, 'Intercept Attack', 'auto');
+      await h.settle();
+      await ctx.gm.waitForTimeout(800);
+      await ctx.gm.keyboard.press('Enter');
+      await h.until('GM intercepted and moved the ally', x => x.ally.hp === x.ally.max && SQUARE(x, 'ally') !== SQUARE(start, 'ally'));
+    } },
+  { name: 'gm-reactions', description: 'No player: the GM answers Reactive Strike and Keep Up the Good Fight.',
+    async run(ctx, h) {
+      await h.arrange({ gmOnly: true, feats: ['reactive-strike'], positions: { guardian: [4, 6], ally: [9, 6], enemy: [5, 6] } });
+      await ctx.rpc(ctx.gm, 'attack', { target: 'ally', weapon: 'shortbow', total: 5, dc: 18, outcome: 'failure' });
+      await h.choose(ctx.gm, 'Reaction', 'reactive-strike');
+      await h.until('GM-run Reactive Strike', x => hasCard(x, 'reaction', 'ranged attack'));
+      await h.arrange({ gmOnly: true, feats: ['keep-up-the-good-fight'], positions: { guardian: [4, 6], ally: [12, 9], enemy: [5, 6] } });
+      await ctx.rpc(ctx.gm, 'damage', { target: 'guardian', formula: '200[bludgeoning]' });
+      await h.settle();
+      await h.choose(ctx.gm, 'Keep Up the Good Fight', 'go');
+      await h.until('GM-run Keep Up the Good Fight', x => x.guardian.hp === 1 && hasCard(x, 'reaction', 'Keep Up the Good Fight'));
+    } },
+  { name: 'gm-feat-actions', description: 'No player: the GM posts feat actions and stances and gets their prompts.',
+    async run(ctx, h) {
+      await h.arrange({ gmOnly: true, feats: ['taunting-strike', 'shield-wallop'], attackBonus: 40, positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
+      await ctx.rpc(ctx.gm, 'postItem', { slug: 'taunting-strike', type: 'feat', targets: ['enemy'] });
+      await h.until('GM Taunting Strike: Strike and Taunt', x => guardianAttacks(x, ctx.fixture.guardian).length >= 1 && x.enemy.tauntedBy.includes(x.guardian.uuid));
+      await ctx.rpc(ctx.gm, 'postItem', { slug: 'shield-wallop', type: 'feat', targets: ['enemy'] });
+      await h.until('GM Shield Wallop: stupefied', x => conditionValue(x.enemy, 'stupefied'));
+      await h.arrange({ gmOnly: true, feats: ['opening-stance', 'paragons-guard'] });
+      await ctx.rpc(ctx.gm, 'setInitiative', { value: 16 });
+      await h.choose(ctx.gm, 'Opening Stance', 'paragons-guard');
+      await h.until('GM Opening Stance', x => x.guardian.effects.includes('guarder-paragons-guard'));
+      ctx.check('The player was never asked', await h.prompt(ctx.player, 'Opening Stance').count() === 0);
     } },
   { name: 'hud-tracker-badge', environment: { modules: ['pf2e-hud'] }, description: 'PF2e HUD tracker shows the reaction badge: click spends, right-click restores.',
     async run(ctx, h) {
@@ -626,10 +883,10 @@ const CASES = [
   { name: 'panel-actions', description: 'Panel Raise a Shield and Taunt targets buttons.',
     async run(ctx, h) {
       await h.arrange({});
-      await h.panel(ctx.player).locator('[data-action="raiseShield"]').click();
+      await h.panel(ctx.player).locator('[data-action="raiseShield"]').dispatchEvent('click');
       await h.until('Raise a Shield from the panel', s => s.guardian.shield.raised);
       await ctx.rpc(ctx.player, 'setTargets', { keys: ['enemy'] });
-      await h.panel(ctx.player).locator('[data-action="tauntTargets"]').click();
+      await h.panel(ctx.player).locator('[data-action="tauntTargets"]').dispatchEvent('click');
       await h.until('Taunt targets from the panel', s => s.enemy.tauntedBy.length === 1);
     } },
   { name: 'sundry-reaction-used', sundry: true, description: 'Spending a reaction adds Sundry\'s Reaction Used counter; restoring removes it.',
@@ -638,9 +895,9 @@ const CASES = [
       if (!sundry.api) return { blocked: 'Sundry API unavailable after enabling the module' };
       await h.arrange({});
       await ctx.rpc(ctx.gm, 'openPanel');
-      await h.panel(ctx.gm).locator('[data-action="toggleReaction"][data-spent="false"]').first().click();
+      await h.panel(ctx.gm).locator('[data-action="toggleReaction"][data-spent="false"]').first().dispatchEvent('click');
       await ctx.eventually('Sundry counter added', async () => (await ctx.rpc(ctx.gm, 'sundryState')).used === 1);
-      await h.panel(ctx.gm).locator('[data-action="toggleReaction"][data-spent="true"]').first().click();
+      await h.panel(ctx.gm).locator('[data-action="toggleReaction"][data-spent="true"]').first().dispatchEvent('click');
       await ctx.eventually('Sundry counter removed', async () => (await ctx.rpc(ctx.gm, 'sundryState')).used === 0);
     } },
 ];

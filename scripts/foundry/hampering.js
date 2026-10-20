@@ -24,6 +24,13 @@ export const STANCES = Object.freeze({
     activeText: "Enemies within 5 ft treat the area as difficult terrain; Not So Fast! enabled",
     rules: [],
   },
+  "covering-stance": {
+    effect: "guarder-covering-stance",
+    name: "Covering Stance",
+    description: "At the end of each of your turns, choose an adjacent ally to gain lesser cover until the start of your next turn.",
+    activeText: "End of your turn: an adjacent ally gets lesser cover",
+    rules: [],
+  },
   "paragons-guard": {
     effect: PARAGON_EFFECT,
     name: "Paragon's Guard",

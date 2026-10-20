@@ -84,6 +84,32 @@ the existing attack card and note the change on it.
   stays at 1 HP instead, once per shield until the next day.
 - **Opening Stance**: when you roll initiative, you're asked which of your stances to enter for free.
 
+### Feat actions
+
+Post a Guardian feat from the sheet with the enemy targeted, and Guarder runs it with PF2e's own Strikes and saves (rolled
+against your class DC), then applies the result with the right duration ("until the start of your next turn" counts from
+your initiative). Unmet requirements ask before continuing.
+
+| Feat | What happens |
+| --- | --- |
+| Taunting Strike / Shielding Taunt | Strike (or Raise a Shield), then Taunt the target |
+| Shoulder Check | Fist or gauntlet Strike; off-guard results by degree (you on a critical failure) |
+| Shield Wallop (+ Devastating Shield Wallop) | Shield Strike: stupefied 1/2 (+1 with a tower shield); then the Fortitude save: off-guard, prone, or prone and stunned 1 |
+| Weakening Assault | Two Strikes at your taunted enemy: enfeebled 1, or 3 if both hit |
+| Ring Their Bell | Fist Strike at a taunted, off-guard enemy, then the incapacitation save: stunned 1-3 |
+| Bloody Denial | Strike, then the save (one degree worse on a crit): no reactions, plus stunned 1 on a critical failure |
+| Lock Down / Belly Flop | Held in your reach / you drop prone, Strike without the prone penalty, immobilize the target |
+| Momentum Strike | Strike; on a hit you click the target's new square (5 or 10 ft, within reach, no walls) |
+| Stomp Ground | Everyone within 5 ft rolls Reflex: off-guard, prone, or prone plus 1d6 falling damage |
+| Armored Courage | Temporary HP equal to your level for 1 minute, frightened −1, once per hour |
+| Guarded Advance / Shielded Attrition / Blanket Defense | Raise a Shield, with a reminder effect where the feat lasts |
+| Defensive Advance / Juggernaut Charge / Retaliating Rescue / Scattering Charge | You move your token; the card has Strike, push-ally (+2) and Shove buttons for what is in reach then |
+| Aggressive Block / Repositioning Block | After a Shield Block against an adjacent attacker: shoved 5 ft or off-guard (the GM chooses for it) / a Reposition button |
+| Covering Stance | At the end of your turn, an adjacent ally gets lesser cover (+1 AC) until the start of your next turn or until it moves away |
+
+Still resolved at the table: Improved Reflexive Shield, Great Shield Mastery, Phalanx Formation and Larger than Life
+(they depend on PF2e's area-save and cover math), and Momentum Strike's push into another creature.
+
 ### Hampering Stance
 
 Posting Hampering Stance from the sheet (or the Enter/End button on its chat card, or the Guardian panel)

@@ -5,7 +5,7 @@ import { guardianPanelBody, reactionSlots } from "../scripts/ui/panel-view.js";
 
 test("feature statuses sort automated, native, then manual, and skip non-guardian items", () => {
   const rows = featureStatuses([
-    { slug: "stomp-ground", name: "Stomp Ground", traits: new Set(["guardian"]) },
+    { slug: "phalanx-formation", name: "Phalanx Formation", traits: new Set(["guardian"]) },
     { slug: "guardians-armor", name: "Guardian's Armor", traits: new Set(["guardian"]) },
     { slug: "intercept-attack", name: "Intercept Attack", traits: new Set(["guardian"]) },
     { slug: "power-attack", name: "Power Attack", traits: new Set(["fighter"]) },

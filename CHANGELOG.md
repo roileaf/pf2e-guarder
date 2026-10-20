@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.2
 
 - High-level Guardian feats:
   - **Boundless Reprisals**: an extra guardian-only reaction at the start of each enemy's turn, lasting that turn. It is
@@ -11,6 +11,17 @@
     per day (with an override prompt).
   - **Shield Salvation**: a Shield Block that would destroy your shield leaves it at 1 HP, once per shield per day.
   - **Opening Stance**: rolling initiative asks whether to drop into one of your stances for free.
+- Guardian feat actions: post the feat from the sheet with the enemy targeted, and Guarder rolls PF2e's Strikes and saves
+  and applies the results with their durations:
+  - Strike riders: Taunting Strike, Shoulder Check, Shield Wallop (+ Devastating Shield Wallop's save), Weakening
+    Assault, Ring Their Bell, Bloody Denial, Lock Down, Belly Flop, Momentum Strike (pick the target's new square).
+  - Shield and Taunt: Shielding Taunt, Guarded Advance, Shielded Attrition, Blanket Defense.
+  - Saves and buffs: Stomp Ground (Reflex saves within 5 ft), Armored Courage (temporary HP, frightened −1, once per hour).
+  - Move-then-act feats get card buttons after you move your token: Defensive Advance, Juggernaut Charge and Retaliating
+    Rescue (Strike an enemy in reach, push an ally), Scattering Charge (Shove up to three creatures).
+  - After Shield Block: Aggressive Block (the attacker is shoved 5 ft or off-guard) and Repositioning Block (Reposition button).
+  - **Covering Stance**: at the end of your turn, an adjacent ally gets lesser cover until it moves away.
+- Requirements (armor, shield, taunted enemy, stance, frequency) are checked, with a "Use it anyway" override.
 
 ## 0.1.1
 

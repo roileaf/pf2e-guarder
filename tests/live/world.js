@@ -44,6 +44,29 @@ const OPTIONAL = {
   'tough-cookie': [['pf2e.feats-srd', 'RNBr91uB7lX9DldN']],
   'shield-salvation': [['pf2e.feats-srd', '4bB3N36DmqllGJNx']],
   'opening-stance': [['pf2e.feats-srd', 'yeSyGnYDkl2GUNmu']],
+  'taunting-strike': [['pf2e.feats-srd', 'Um5owecqPW17dtl2']],
+  'shielding-taunt': [['pf2e.feats-srd', 'qD5At83TIxznCwPg']],
+  'shoulder-check': [['pf2e.feats-srd', 'HtLFPJeL0QTDLEfq']],
+  'shield-wallop': [['pf2e.feats-srd', 'Xik9lMAA4e5xFegM']],
+  'devastating-shield-wallop': [['pf2e.feats-srd', 'oNUIacH67QDxT5ki']],
+  'weakening-assault': [['pf2e.feats-srd', '41zc9MdLoTy02kim']],
+  'ring-their-bell': [['pf2e.feats-srd', 'NMRBes7gGfGldOrn']],
+  'bloody-denial': [['pf2e.feats-srd', '8okUez3GQOdrE4Ov']],
+  'lock-down': [['pf2e.feats-srd', 'SiGvSOPQmZ0nyXVO']],
+  'belly-flop': [['pf2e.feats-srd', 'Wk1qjeuofFyLFdTQ']],
+  'stomp-ground': [['pf2e.feats-srd', 'eSq9I2OPDfzhybkr']],
+  'armored-courage': [['pf2e.feats-srd', 'eje2BkIpxCrf39E9']],
+  'guarded-advance': [['pf2e.feats-srd', 'etaixAdHNlHnLH0i']],
+  'shielded-attrition': [['pf2e.feats-srd', 'IQGx2nSNsyPGtzYt']],
+  'blanket-defense': [['pf2e.feats-srd', 'wbKzD4D3VHbD6OiL']],
+  'defensive-advance': [['pf2e.feats-srd', '117d4Me9nAn1GMry']],
+  'juggernaut-charge': [['pf2e.feats-srd', 'GCUXprGmuEl7JUdF']],
+  'retaliating-rescue': [['pf2e.feats-srd', '0EjaNZM7qeARiuEU']],
+  'scattering-charge': [['pf2e.feats-srd', 'ylDAxUpT0rXxilro']],
+  'momentum-strike': [['pf2e.feats-srd', 'k4TsVHoGtBJNJw8a']],
+  'aggressive-block': [['pf2e.feats-srd', '19OLlTrxvEtDAOHc']],
+  'repositioning-block': [['pf2e.feats-srd', 'vw93yCHEmxutFO8h']],
+  'covering-stance': [['pf2e.feats-srd', 'sMKUJQ29CYYoB7b0']],
 };
 // Reactions the module offers to any character holding them; stripped from the non-guardians.
 const REACTION_SLUGS = [...Object.keys(OPTIONAL), 'shield-block', 'intercept-attack', 'taunt'];
@@ -168,7 +191,7 @@ export async function setup(context) {
   await combat.startCombat();
   // Park the turn on the second enemy so no guardian turn reset runs mid-case.
   await combat.update({ turn: combat.turns.findIndex(c => c.tokenId === tokens.enemy2) });
-  return { scene: scene.id, combat: combat.id, tokens,
+  return { scene: scene.id, combat: combat.id, tokens, player,
     guardian: actors.guardian.id, ally: actors.ally.id, enemy: actors.enemy.id, enemy2: actors.enemy2.id };
 }
 
@@ -217,6 +240,15 @@ export async function arrange(context) {
   const wanted = new Set(spec.feats ?? []);
   const drop = guardian.items.filter(i => Object.hasOwn(OPTIONAL, i.slug) && !wanted.has(i.slug)).map(i => i.id);
   if (drop.length) await guardian.deleteEmbeddedDocuments('Item', drop);
+  // GM side: with `gmOnly` the QA player doesn't own the guardian, so it has no player and the GM is asked.
+  const ownerLevel = spec.gmOnly ? 0 : 3;
+  if (context.fixture.player && (guardian.ownership[context.fixture.player] ?? 0) !== ownerLevel) {
+    await guardian.update({ [`ownership.${context.fixture.player}`]: ownerLevel });
+  }
+  for (const item of guardian.items.filter(i => i.name === 'QA Stance')) await item.delete();
+  if (spec.extraStance) await guardian.createEmbeddedDocuments('Item', [{ name: 'QA Stance', type: 'feat',
+    system: { slug: 'qa-stance', actionType: { value: 'action' }, actions: { value: 1 }, category: 'class', level: { value: 1 },
+      traits: { value: ['stance'], rarity: 'common' }, description: { value: '<p>Live-test stance without module automation.</p>' } } }]);
   // 2. Effects and conditions off, HP full, flags clear.
   for (const key of keys) {
     const document = actor(key);
@@ -261,6 +293,11 @@ export async function arrange(context) {
     await combat.update({ turn: combat.turns.findIndex(c => c.tokenId === token('enemy2').id) });
   }
   await api().setReactions(guardian, spec.pool ?? { general: 1, guardian: 1 });
+  const tuning = (name, selector, value) => ({ name, type: 'effect', system: { slug: `qa-${selector}`, rules: [{ key: 'FlatModifier', selector, value, type: 'untyped', label: name }],
+    duration: { expiry: null, unit: 'unlimited', value: -1, sustained: false }, traits: { rarity: 'common', value: [] }, description: { value: '' } } });
+  if (spec.attackBonus) await guardian.createEmbeddedDocuments('Item', [tuning('QA attack bonus', 'attack', spec.attackBonus)]);
+  for (const key of spec.saveMalus ? ['enemy', 'enemy2', 'ally'] : []) await actor(key).createEmbeddedDocuments('Item', [tuning('QA save penalty', 'saving-throw', spec.saveMalus)]);
+  for (const key of spec.prone ?? []) await actor(key).increaseCondition('prone');
   if (spec.shieldRaised) await game.pf2e.actions.raiseAShield({ actors: [guardian] });
   if (spec.stance) {
     const { setHamperingStance } = await import('../../scripts/foundry/hampering.js');
@@ -443,6 +480,17 @@ export function screenPoint(context) {
   return { x: point.x, y: point.y };
 }
 
+/** Diagnostics for Covering Stance's cover: where the effect points and how far the guardian is. */
+export async function coverState(context) {
+  const { actor, token } = fixture(context);
+  const { tokenDistance } = await import('../../scripts/foundry/actors.js');
+  return actor('ally').itemTypes.effect.filter(e => e.slug === 'guarder-covering-stance-cover').map(e => {
+    const link = e.flags?.[SCOPE]?.covering ?? null;
+    const guardianToken = link?.guardianTokenUuid ? fromUuidSync(link.guardianTokenUuid) : null;
+    return { link, resolved: Boolean(guardianToken), distance: guardianToken ? tokenDistance(guardianToken, token('ally')) : null, ally: [token('ally').x, token('ally').y] };
+  });
+}
+
 export async function moveToken(context) {
   guard(context, true);
   const { token } = fixture(context);
@@ -465,6 +513,15 @@ export async function setInitiative(context) {
   const combatant = combat.combatants.find(c => c.actorId === actor('guardian').id);
   await combatant.update({ initiative: null });
   await combatant.update({ initiative: context.value });
+}
+
+export async function setCondition(context) {
+  guard(context, true);
+  const { actor } = fixture(context);
+  const document = actor(context.key);
+  const existing = document.itemTypes.condition.find(c => c.slug === context.slug);
+  if (existing) await existing.delete();
+  await document.increaseCondition(context.slug, context.value ? { value: context.value } : {});
 }
 
 export async function setDying(context) {
@@ -492,9 +549,10 @@ export async function snapshot(context) {
     const t = token(key);
     return {
       hp: document.system.attributes.hp.value, max: document.system.attributes.hp.max, temp: document.system.attributes.hp.temp,
-      col: Math.round(t.x / GRID), row: Math.round(t.y / GRID),
+      col: Math.round(t.x / GRID), row: Math.round(t.y / GRID), token: t.uuid,
       effects: document.itemTypes.effect.map(e => e.slug ?? e.name),
-      conditions: document.itemTypes.condition.map(c => ({ slug: c.slug, value: c.value ?? null })),
+      // actor.conditions includes conditions granted in memory by effects (e.g. stupefied from Shield Wallop).
+      conditions: [...(document.conditions?.active ?? document.itemTypes.condition)].map(c => ({ slug: c.slug, value: c.value ?? null })),
       tauntedBy: document.itemTypes.effect.filter(e => e.slug === 'effect-taunt').map(e => e.system.context?.origin?.actor ?? null),
     };
   };
@@ -515,6 +573,7 @@ export async function snapshot(context) {
     messages: messages.map(m => ({ id: m.id, card: m.flags?.[SCOPE]?.card ?? null, type: m.flags?.pf2e?.context?.type ?? null,
       outcome: m.flags?.pf2e?.context?.outcome ?? null, retargeted: !!m.flags?.[SCOPE]?.retargeted, outcomeChanged: !!m.flags?.[SCOPE]?.outcomeChanged,
       target: m.flags?.pf2e?.context?.target?.actor ?? null, speaker: m.speaker?.actor ?? null, item: m.item?.slug ?? null,
+      feat: m.flags?.[SCOPE]?.feat ?? null, degree: m.rolls?.[0]?.degreeOfSuccess ?? null,
       modifiers: (m.flags?.pf2e?.modifiers ?? []).map(x => x.slug), text: (m.content ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400),
       flavor: (m.flavor ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400) })),
     prompts: [...foundry.applications.instances.values()].filter(a => a.element?.classList.contains('pf2e-guarder-prompt-app')).map(a => a.title),

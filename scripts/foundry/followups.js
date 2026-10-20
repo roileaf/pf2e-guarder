@@ -88,9 +88,37 @@ function proficiencyOf(strike) {
   return (strike?.modifiers ?? []).find((modifier) => modifier.type === "proficiency" && modifier.enabled)?.modifier ?? 0;
 }
 
+// Card buttons of feats whose movement the player does by hand (see feat-actions.js).
+const FEAT_FOLLOW_UPS = ["strike-in-reach", "shove-in-reach", "push-ally", "reposition"];
+
+const FIST_SLUGS = ["spiked-gauntlet", "gauntlet", "fist"];
+
+function isShieldStrike(action) {
+  const item = action.item;
+  return item?.type === "shield" || item?.system?.group === "shield" || ["shield-bash", "shield-boss", "shield-spikes"].includes(item?.slug ?? action.slug);
+}
+
+/**
+ * The guardian's Strike of a kind: "melee" (first ready melee Strike), "fist" (a gauntlet if wielded,
+ * else the fist; usable without a free hand) or "shield" (shield bash, boss or spikes).
+ */
+export function findStrike(actor, kind = "melee") {
+  const strikes = (actor?.system?.actions ?? []).filter((action) => action.type === "strike");
+  const ready = strikes.filter((action) => action.ready !== false);
+  if (kind === "fist") {
+    for (const slug of FIST_SLUGS) {
+      const found = strikes.find((action) => (action.item?.slug ?? action.slug) === slug && (slug === "fist" || action.ready !== false));
+      if (found) return found;
+    }
+    return strikes.find((action) => action.slug === "basic-unarmed" || action.item?.system?.category === "unarmed") ?? null;
+  }
+  if (kind === "shield") return ready.find(isShieldStrike) ?? strikes.find(isShieldStrike) ?? null;
+  return ready.find((action) => (action.item?.isMelee ?? true) && !isShieldStrike(action))
+    ?? ready.find((action) => action.item?.isMelee ?? true) ?? null;
+}
+
 function meleeStrike(actor) {
-  return (actor?.system?.actions ?? []).find((action) => action.type === "strike" && action.ready !== false
-    && (action.item?.isMelee ?? true)) ?? null;
+  return findStrike(actor, "melee");
 }
 
 async function withTarget(token, run) {
@@ -101,6 +129,18 @@ async function withTarget(token, run) {
   } finally {
     if (previous.length) for (const [index, uuid] of previous.entries()) fromUuidSync(uuid)?.object?.setTarget(true, { releaseOthers: index === 0 });
   }
+}
+
+/**
+ * Strike a token with one of the guardian's Strikes. `kind` picks the Strike (see findStrike), `variant`
+ * the multiple attack penalty step (0 first attack), `modifiers` extra PF2e modifiers.
+ * Returns the attack roll (with degreeOfSuccess) or null when the roll was cancelled.
+ */
+export async function strikeWith(guardian, targetToken, { kind = "melee", variant = 0, modifiers = [] } = {}) {
+  const strike = findStrike(guardian, kind);
+  if (!strike) throw new Error(`${guardian.name} has no ${kind === "fist" ? "fist or gauntlet" : kind} Strike.`);
+  const roller = strike.variants?.[variant] ?? strike;
+  return withTarget(tokenDocument(targetToken), () => roller.roll({ event: new MouseEvent("click"), modifiers }));
 }
 
 /** Strike the attacker with the guardian's first ready melee Strike. `mythic` uses mythic proficiency. */
@@ -134,6 +174,11 @@ async function disarm(guardian, attackerToken) {
 async function onFollowUp(button) {
   const { guarderFollowup: kind, guardian: guardianUuid, attacker: attackerUuid } = button.dataset;
   const guardian = fromUuidSync(guardianUuid);
+  if (FEAT_FOLLOW_UPS.includes(kind)) {
+    if (!guardian?.isOwner) return notify("warn", "Only the guardian's owner can use this.");
+    const { runFeatFollowUp } = await import("./feat-actions.js");
+    return void await runFeatFollowUp(kind, button, guardian).catch((error) => notify("error", error.message));
+  }
   const attackerToken = await fromUuid(attackerUuid);
   if (!guardian?.isOwner) return notify("warn", "Only the guardian's owner can use this.");
   if (!attackerToken?.object) return notify("warn", "The attacker is not on the viewed scene.");

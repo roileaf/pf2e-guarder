@@ -18,6 +18,7 @@ import { broadcast, isResponsibleGM, registerListener, registerOperation, reques
 import { moveToward } from "./unbelievable.js";
 import { sundryCountsPostedReactions, sundryCountsStrikes } from "./sundry.js";
 import { toughCookie } from "./feats.js";
+import { afterShieldBlock, runFeatAction } from "./feat-actions.js";
 import { activeStance, setStance, STANCES } from "./hampering.js";
 
 const ATTACK_TYPES = ["attack-roll", "spell-attack-roll"];
@@ -217,7 +218,11 @@ const RESOLVERS = {
     // Undo only the knock-out conditions that came with this hit (some modules add them at 0 HP).
     const before = new Set(payload.conditionsBefore ?? []);
     for (const slug of ["dying", "unconscious", "prone"]) {
-      if (!before.has(slug) && hasCondition(guardian, slug)) await guardian.decreaseCondition?.(slug, { forceRemove: true });
+      if (before.has(slug) || !hasCondition(guardian, slug)) continue;
+      // Another module (PF2e Workbench) may remove the same condition at the same moment on this client.
+      await guardian.decreaseCondition?.(slug, { forceRemove: true }).catch((error) => {
+        if (hasCondition(guardian, slug)) throw error;
+      });
     }
     // Removing dying may already raise wounded (PF2e Workbench); never add it twice.
     await new Promise((resolve) => setTimeout(resolve, 400));
@@ -424,6 +429,7 @@ export async function afterDamage(actor, options, hpBefore, conditionsBefore = [
   if (options.shieldBlockRequest && !options[`${MODULE_ID}.intercepted`] && guardian.attributes?.shield?.raised && hasSlug(guardian, "shield-block")) {
     await spendReactions(guardian, 1);
     if (hasSlug(guardian, "quick-vengeance")) await grantQuickVengeance(guardian, attacker?.name, combatantFor(guardian));
+    if (attacker) await afterShieldBlock(guardian, sceneTokenFor(guardian), options.item?.actor?.token ?? sceneTokenFor(attacker));
   }
   const item = itemBySlug(guardian, "keep-up-the-good-fight");
   // The guardian is at 0 HP here by definition, and modules such as PF2e Workbench may already have
@@ -530,6 +536,7 @@ async function onStanceOrReactionPosted(message) {
     await toughCookie(actor, item);
     return;
   }
+  if (await runFeatAction(message)) return;
   // Sundry's own tracker already marks reaction items posted to chat.
   if (item.system?.actionType?.value === "reaction" && reactionPool(actor)) await spendReactions(actor, 1, { sundry: !sundryCountsPostedReactions() });
 }

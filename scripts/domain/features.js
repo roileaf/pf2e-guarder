@@ -30,13 +30,36 @@ export const AUTOMATED = Object.freeze({
   "tough-cookie": "Temporary HP for 1 minute when posted at half HP or less, once per day",
   "shield-salvation": "Shield Block can't destroy your shield: it stays at 1 HP, once per shield per day",
   "opening-stance": "Prompted to enter a stance when you roll initiative",
+  "taunting-strike": "Strikes the target, then Taunts it",
+  "shielding-taunt": "Raises your shield, then Taunts the target",
+  "shoulder-check": "Fist or gauntlet Strike; off-guard results applied by degree",
+  "shield-wallop": "Shield Strike; stupefied by degree (tower shields +1)",
+  "devastating-shield-wallop": "Fortitude save after Shield Wallop: off-guard, prone, or prone and stunned",
+  "weakening-assault": "Two Strikes at your taunted enemy; enfeebled 1 or 3",
+  "ring-their-bell": "Fist Strike, then the incapacitation save: stunned 1-3",
+  "bloody-denial": "Strike, then the save: no reactions, stunned on a critical failure",
+  "lock-down": "Strike in Hampering Stance; the target is held in your reach",
+  "belly-flop": "Drop prone and Strike without the prone penalty; immobilizes on a hit",
+  "stomp-ground": "Reflex saves within 5 feet: off-guard, prone, falling damage",
+  "armored-courage": "Temporary HP equal to your level, frightened reduced, once per hour",
+  "guarded-advance": "Raises your shield; you Step twice",
+  "shielded-attrition": "Raises your shield; reminder effect for reactions you draw",
+  "blanket-defense": "Raises your shield; reminder effect for blocking for adjacent allies",
+  "defensive-advance": "Raises your shield; Strike button for enemies in reach after you move",
+  "juggernaut-charge": "Strike button for enemies in reach after you move",
+  "retaliating-rescue": "Push-ally and Strike (+2) buttons after you move",
+  "scattering-charge": "Shove up to three creatures in reach after you move",
+  "momentum-strike": "Strike; on a hit you pick the target's new square within reach",
+  "aggressive-block": "After Shield Block: the attacker is shoved 5 ft or becomes off-guard",
+  "repositioning-block": "After Shield Block: Reposition button for the attacker",
+  "covering-stance": "Stance; at the end of your turn an adjacent ally gets lesser cover",
 });
 
 export const NATIVE = Object.freeze([
   "guardians-armor", "area-armor", "shield-warfare", "raise-haft", "shield-your-eyes", "mighty-bulwark",
   "guardian-mastery", "unyielding-force", "unyielding-resolve", "battle-hardened", "perfect-protection",
   "demolish-defenses", "clobber", "proud-nail", "flying-tackle", "armor-break", "punishing-shove",
-  "sure-footed", "reflexive-shield", "weapon-expertise",
+  "sure-footed", "reflexive-shield", "weapon-expertise", "right-where-you-want-them",
 ]);
 
 /** Status rows for the items an actor owns: { slug, name, status: automated|native|manual, detail }. */

@@ -1,7 +1,7 @@
 {
   "id": "pf2e-guarder",
   "title": "PF2e Guarder",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "authors": [
     {
       "name": "RoiLeaf",
@@ -36,5 +36,5 @@
   "description": "Guardian automation for Pathfinder Second Edition: Intercept Attack damage redirection, Taunt management, and guardian reaction tracking.",
   "url": "https://github.com/roileaf/pf2e-guarder",
   "manifest": "https://raw.githubusercontent.com/roileaf/pf2e-guarder/main/module.json",
-  "download": "https://github.com/roileaf/pf2e-guarder/releases/download/0.1.1/module.zip"
+  "download": "https://github.com/roileaf/pf2e-guarder/releases/download/0.1.2/module.zip"
 }
