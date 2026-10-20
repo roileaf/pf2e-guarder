@@ -1,10 +1,23 @@
 # Changelog
 
-## Unreleased
+## 0.1.1
 
+**Install / update link changed.** Use `https://raw.githubusercontent.com/roileaf/pf2e-guarder/main/module.json`.
+It always offers the newest version, pre-releases included. The 0.1.0 link did not work for updates, so reinstall once
+with the new link.
+
+- Intercept Attack: the automatic Step (or taunted-enemy Stride) now ends on the square next to the ally that is closest
+  to the attacker, putting the guardian between them, instead of the cheapest square.
 - Intercept Attack: "I'll move" is now **Choose square**: the player clicks one of the highlighted open squares next to
-  the ally within the Step (or taunted-enemy Stride) range instead of moving freely.
-- Live Foundry test suite (44 workflows, GM and player sessions) under `tests/live`.
+  the ally within the Step/Stride range instead of moving freely.
+- Movement never passes through walls: Intercept's Step/Stride, Choose square, Get Behind Me! and the Stride toward the
+  attacker (Clang!, Unbelievable Interception) skip squares behind walls and closed doors.
+- Square picker: Large and bigger creatures pick the exact placement under the pointer, and overlapping placements are
+  drawn cleanly. Tiny creatures inside a square are measured from the right square.
+- PF2e HUD: guardians' reaction glyphs now show in PF2e HUD's combat tracker, with the same click to spend and
+  right-click to restore.
+- Fixed: restoring reactions from the tracker badge could go past the guardian's maximum and pile up extra glyphs.
+- Live Foundry test suite (46 workflows, GM and player sessions) under `tests/live`.
 
 ## 0.1.0
 

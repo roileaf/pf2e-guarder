@@ -2,7 +2,7 @@ import { MODULE_ID } from "../constants.js";
 import { getBehindCandidates, overlaps } from "../domain/geometry.js";
 import { pickSquare } from "../canvas/square-picker.js";
 import { mythicProficiencyBonus } from "../domain/followups.js";
-import { footprint, gridDistance, notify, tokenDocument } from "./actors.js";
+import { footprint, gridDistance, notify, tokenDocument, wallBlocksMove } from "./actors.js";
 import { tauntTokens } from "./taunt.js";
 import { registerOperation, requestOperation } from "./socket.js";
 
@@ -25,6 +25,11 @@ function squareBlocked(scene, ignore, candidate) {
   return [...scene.tokens].some((token) => !ignore.includes(token.id) && !token.hidden && overlaps(candidate, footprint(token)));
 }
 
+/** An occupied square, or one the moving token can't reach without passing through a wall. */
+function moveBlocked(mover, ignore, candidate) {
+  return squareBlocked(mover.parent, ignore, candidate) || wallBlocksMove(mover, candidate);
+}
+
 /** Get Behind Me!: pick and request the ally's new square. Returns a chat note. */
 export async function getBehindMe({ guardianToken, allyToken, attackerToken }) {
   const guardian = tokenDocument(guardianToken);
@@ -38,7 +43,7 @@ export async function getBehindMe({ guardianToken, allyToken, attackerToken }) {
     reach: actorReach(guardian.actor),
     budget: 10,
     gridDistance: gridDistance(scene),
-    blocked: (candidate) => squareBlocked(scene, [ally.id, guardian.id], candidate),
+    blocked: (candidate) => moveBlocked(ally, [ally.id, guardian.id], candidate),
   });
   if (!candidates.length) return "Get Behind Me!: no open square farther from the attacker";
   // The guardian's player chooses among the legal squares when they can see the scene.

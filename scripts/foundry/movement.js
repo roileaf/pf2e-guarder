@@ -1,6 +1,6 @@
 import { chooseInterceptPosition, interceptCandidates, overlaps } from "../domain/geometry.js";
 import { pickSquare } from "../canvas/square-picker.js";
-import { footprint, gridDistance, tokenDocument } from "./actors.js";
+import { footprint, gridDistance, tokenDocument, wallBlocksMove } from "./actors.js";
 
 function gridSize(scene) {
   return Number(scene?.grid?.size ?? globalThis.canvas?.grid?.size ?? 100) || 100;
@@ -12,18 +12,7 @@ function squareGrid(scene) {
   return type === undefined || type === square;
 }
 
-function wallBlocks(token, candidate, size) {
-  const placeable = token.object;
-  if (typeof placeable?.checkCollision !== "function") return false;
-  const destination = { x: (candidate.col + candidate.w / 2) * size, y: (candidate.row + candidate.h / 2) * size };
-  try {
-    return Boolean(placeable.checkCollision(destination, { type: "move", mode: "any" }));
-  } catch {
-    return false;
-  }
-}
-
-function plan(guardianToken, allyToken) {
+function plan(guardianToken, allyToken, attackerToken = null) {
   const guardian = tokenDocument(guardianToken);
   const ally = tokenDocument(allyToken);
   const scene = guardian?.parent;
@@ -33,13 +22,16 @@ function plan(guardianToken, allyToken) {
   const others = [...scene.tokens]
     .filter((token) => token.id !== guardian.id && token.id !== ally.id && !token.hidden)
     .map(footprint);
+  const attacker = tokenDocument(attackerToken);
   return {
     guardian, ally, scene, size,
     options: {
       guardian: footprint(guardian),
       ally: footprint(ally),
+      // Step in toward the threat: squares nearest the attacker come first.
+      attacker: attacker?.parent?.id === scene.id ? footprint(attacker) : null,
       gridDistance: gridDistance(scene),
-      blocked: (candidate) => others.some((other) => overlaps(candidate, other)) || wallBlocks(guardian, candidate, size),
+      blocked: (candidate) => others.some((other) => overlaps(candidate, other)) || wallBlocksMove(guardian, candidate),
     },
   };
 }
@@ -51,11 +43,11 @@ async function moveTo(guardian, position, size) {
 }
 
 /**
- * Move the guardian to the cheapest open square adjacent to the ally within `budget` feet.
+ * Move the guardian to the open square adjacent to the ally within `budget` feet that is nearest the attacker.
  * Returns { moved, cost, reason } where reason explains why no move happened.
  */
-export async function moveAdjacent(guardianToken, allyToken, { budget }) {
-  const { guardian, size, options, reason } = plan(guardianToken, allyToken);
+export async function moveAdjacent(guardianToken, allyToken, { budget, attackerToken = null }) {
+  const { guardian, size, options, reason } = plan(guardianToken, allyToken, attackerToken);
   if (reason) return { moved: false, reason };
   const position = chooseInterceptPosition({ ...options, budget });
   if (!position) return { moved: false, reason: "no-space" };
@@ -67,14 +59,14 @@ export async function moveAdjacent(guardianToken, allyToken, { budget }) {
  * "I'll move": the guardian's player clicks one of the open squares adjacent to the ally that the
  * Step (or taunted-enemy Stride) can reach. Escape, right-click or the timeout leaves the guardian in place.
  */
-export async function pickAdjacent(guardianToken, allyToken, { budget, label = "Step", timeoutMs = 40_000 }) {
-  const { guardian, ally, scene, size, options, reason } = plan(guardianToken, allyToken);
+export async function pickAdjacent(guardianToken, allyToken, { budget, attackerToken = null, label = "Step", timeoutMs = 40_000 }) {
+  const { guardian, ally, scene, size, options, reason } = plan(guardianToken, allyToken, attackerToken);
   if (reason) return { moved: false, reason };
   const candidates = interceptCandidates({ ...options, budget });
   if (!candidates.length) {
     return { moved: false, reason: chooseInterceptPosition({ ...options, budget })?.cost === 0 ? "adjacent" : "no-space" };
   }
-  if (globalThis.canvas?.scene?.id !== scene.id) return moveAdjacent(guardianToken, allyToken, { budget });
+  if (globalThis.canvas?.scene?.id !== scene.id) return moveAdjacent(guardianToken, allyToken, { budget, attackerToken });
   const position = await pickSquare({
     candidates,
     timeoutMs,

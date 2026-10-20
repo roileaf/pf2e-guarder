@@ -8,6 +8,12 @@ export function initiativePool({ everReady = false, reactionTime = false } = {})
   };
 }
 
+/** Keep a pool within 0 and the most the guardian can hold at once (its initiative pool). */
+export function clampPool(pool, max) {
+  const limit = (value, top) => Math.min(Math.max(0, Math.floor(Number(value) || 0)), top);
+  return { general: limit(pool?.general, max.general), guardian: limit(pool?.guardian, max.guardian) };
+}
+
 export function turnStartPool({ reactionTime = false } = {}) {
   return { general: 1, guardian: reactionTime ? 1 : 0 };
 }

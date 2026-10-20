@@ -1,5 +1,6 @@
 import { MODULE_ID } from "../constants.js";
 import { degreeOfSuccess, frequencyAvailable, OUTCOMES } from "../domain/followups.js";
+import { footprintOf } from "../domain/geometry.js";
 import {
   attackFacts, clangApplies, isHit, keepUpTriggers, leftSquareInReach, NOT_SO_FAST, reactiveShieldApplies,
   reactiveStrikeOnAttack, shieldFromArrowsApplies, toughToKillClamp,
@@ -386,12 +387,10 @@ async function onActionMessage(message) {
 
 function footprintAt(document, point) {
   const size = Number(document.parent?.grid?.size ?? 100) || 100;
-  return {
-    col: Math.round(Number(point.x ?? document.x) / size),
-    row: Math.round(Number(point.y ?? document.y) / size),
-    w: Math.max(1, Math.round(Number(point.width ?? document.width) || 1)),
-    h: Math.max(1, Math.round(Number(point.height ?? document.height) || 1)),
-  };
+  return footprintOf({
+    x: point.x ?? document.x, y: point.y ?? document.y,
+    width: point.width ?? document.width, height: point.height ?? document.height,
+  }, size);
 }
 
 function inHamperingStance(actor) {

@@ -1,5 +1,6 @@
 import { IMMOBILIZING_CONDITIONS, INCAPACITATING_CONDITIONS, SLUGS } from "../constants.js";
-import { creatureDistance } from "../domain/geometry.js";
+import { creatureDistance, footprintOf } from "../domain/geometry.js";
+import { footprintCenter, wallBlocksPath } from "../domain/walls.js";
 import { activeGM } from "./socket.js";
 
 export function notify(level, message) {
@@ -97,12 +98,7 @@ export function gridDistance(scene = globalThis.canvas?.scene) {
 export function footprint(token) {
   const doc = tokenDocument(token);
   const size = Number(doc?.parent?.grid?.size ?? globalThis.canvas?.grid?.size ?? 100) || 100;
-  return {
-    col: Math.round(Number(doc.x) / size),
-    row: Math.round(Number(doc.y) / size),
-    w: Math.max(1, Math.round(Number(doc.width) || 1)),
-    h: Math.max(1, Math.round(Number(doc.height) || 1)),
-  };
+  return footprintOf(doc, size);
 }
 
 export function tokenDistance(a, b) {
@@ -128,4 +124,18 @@ export function tauntOrigin(effect) {
 
 export function isTauntedBy(enemy, guardian) {
   return tauntEffects(enemy).some((effect) => sameActor(tauntOrigin(effect), guardian));
+}
+
+/**
+ * Whether moving `token` straight to the footprint `candidate` would pass through a movement wall
+ * (closed doors included) on the token's scene. Uses the scene's wall documents, so it also works on a
+ * client that is not viewing that scene.
+ */
+export function wallBlocksMove(token, candidate) {
+  const doc = tokenDocument(token);
+  const scene = doc?.parent;
+  if (!scene?.walls?.size) return false;
+  const size = Number(scene.grid?.size ?? 100) || 100;
+  const walls = [...scene.walls].map((wall) => ({ c: wall.c, move: wall.move, door: wall.door, ds: wall.ds }));
+  return wallBlocksPath(walls, footprintCenter(footprint(doc), size), footprintCenter(candidate, size));
 }

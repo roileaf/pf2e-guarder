@@ -254,6 +254,7 @@ async function resolveIntercept(payload) {
   const guardian = tokenDoc?.actor ?? await fromUuid(payload.guardianUuid);
   if (!guardian) throw new Error("The intercepting guardian is unavailable.");
   const allyToken = await fromUuid(payload.allyTokenUuid);
+  const attackerToken = payload.attackerTokenUuid ? await fromUuid(payload.attackerTokenUuid) : null;
   const notes = [];
 
   if (allyToken && tokenDoc) {
@@ -263,8 +264,8 @@ async function resolveIntercept(payload) {
       const budget = interceptMovementBudget({ sourceTaunted: payload.sourceTaunted, speed: landSpeed(guardian) });
       // "I'll move" (or auto-move turned off): the player picks the square, limited to the same budget.
       const movement = payload.autoMove
-        ? await moveAdjacent(tokenDoc, allyToken, { budget })
-        : await pickAdjacent(tokenDoc, allyToken, { budget, label: payload.sourceTaunted && budget > 5 ? "Stride" : "Step" });
+        ? await moveAdjacent(tokenDoc, allyToken, { budget, attackerToken })
+        : await pickAdjacent(tokenDoc, allyToken, { budget, attackerToken, label: payload.sourceTaunted && budget > 5 ? "Stride" : "Step" });
       if (movement.moved) notes.push(`${payload.sourceTaunted && movement.cost > 5 ? "Strides" : "Steps"} ${movement.cost} feet`);
       else if (movement.reason === "no-space") notes.push("no open square adjacent to the ally; move manually");
       else if (movement.reason === "unsupported-grid") notes.push("move manually (gridless or hex scene)");
@@ -280,7 +281,6 @@ async function resolveIntercept(payload) {
   }
 
   await spendFrequency(guardian);
-  const attackerToken = payload.attackerTokenUuid ? await fromUuid(payload.attackerTokenUuid) : null;
   const feats = new Set(guardian.items.map((entry) => entry.slug));
   const followUps = interceptFollowUps({
     feats,

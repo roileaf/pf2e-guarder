@@ -1,14 +1,12 @@
 // Let the user click one of several legal destination squares on the canvas.
 // Enter takes the suggested (first) square; Escape or right-click cancels.
 
+import { candidateAtPoint, coveredCells } from "../domain/geometry.js";
+
 let cancelActive = null;
 
 const ORANGE = 0xe8862e;
 const ORANGE_BRIGHT = 0xffb15c;
-
-function contains(candidate, col, row) {
-  return col >= candidate.col && col < candidate.col + candidate.w && row >= candidate.row && row < candidate.row + candidate.h;
-}
 
 /**
  * @param {object} options
@@ -30,15 +28,21 @@ export function pickSquare({ candidates, prompt, timeoutMs = 0 }) {
     const previousCursor = view.style.cursor;
     view.style.cursor = "crosshair";
 
+    // Footprints of Large and bigger creatures overlap: paint each reachable cell once, then outline
+    // the suggested footprint and the one under the pointer.
+    const cells = coveredCells(candidates);
+    const outline = (candidate, width, color, alpha, fill) => graphics.lineStyle(width, color, alpha)
+      .beginFill(ORANGE, fill)
+      .drawRoundedRect(candidate.col * size + 3, candidate.row * size + 3, candidate.w * size - 6, candidate.h * size - 6, 8)
+      .endFill();
     const draw = (hovered) => {
       graphics.clear();
-      for (const [index, candidate] of candidates.entries()) {
-        const active = candidate === hovered;
-        graphics.lineStyle(active ? 3 : 2, active ? ORANGE_BRIGHT : ORANGE, active ? 1 : 0.85)
-          .beginFill(ORANGE, active ? 0.45 : index === 0 ? 0.3 : 0.16)
-          .drawRoundedRect(candidate.col * size + 3, candidate.row * size + 3, candidate.w * size - 6, candidate.h * size - 6, 8)
-          .endFill();
+      for (const cell of cells) {
+        graphics.lineStyle(1, ORANGE, 0.5).beginFill(ORANGE, 0.14)
+          .drawRoundedRect(cell.col * size + 3, cell.row * size + 3, size - 6, size - 6, 8).endFill();
       }
+      if (candidates[0] !== hovered) outline(candidates[0], 2, ORANGE, 0.9, 0.18);
+      if (hovered) outline(hovered, 3, ORANGE_BRIGHT, 1, 0.35);
     };
     const location = (event) => {
       const rect = view.getBoundingClientRect();
@@ -49,9 +53,7 @@ export function pickSquare({ candidates, prompt, timeoutMs = 0 }) {
     };
     const candidateAt = (event) => {
       const point = location(event);
-      const col = Math.floor(point.x / size);
-      const row = Math.floor(point.y / size);
-      return candidates.find((candidate) => contains(candidate, col, row)) ?? null;
+      return candidateAtPoint(candidates, point.x / size, point.y / size);
     };
     let timer = null;
     const cleanup = (result = null) => {

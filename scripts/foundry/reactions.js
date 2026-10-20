@@ -1,5 +1,5 @@
 import { FLAG_SCOPE, SLUGS } from "../constants.js";
-import { availableReactions, consumeReaction, describePool, initiativePool, turnStartPool } from "../domain/reactions.js";
+import { availableReactions, clampPool, consumeReaction, describePool, initiativePool, turnStartPool } from "../domain/reactions.js";
 import { setting } from "../settings.js";
 import { hasSlug, isGuardian } from "./actors.js";
 import { isResponsibleGM, registerOperation, requestOperation } from "./socket.js";
@@ -80,10 +80,16 @@ export async function spendReactions(actor, count = 1, { sundry = true } = {}) {
   return spent;
 }
 
+/** The most reactions this guardian can hold at once. */
+export function maxPool(actor) {
+  return initiativePool(guardianTraits(actor));
+}
+
 export async function setReactions(actor, pool) {
   const combatant = combatantFor(actor);
   if (!combatant) throw new Error(`${actor?.name ?? "Actor"} is not in the current combat.`);
-  await writePool(combatant, { general: Math.max(0, pool.general ?? 0), guardian: Math.max(0, pool.guardian ?? 0) });
+  // Restoring can never give more than 1 reaction plus Ever Ready / Reaction Time guardian-only ones.
+  await writePool(combatant, clampPool(pool, maxPool(actor)));
 }
 
 async function resetCombatant(combatant, kind) {

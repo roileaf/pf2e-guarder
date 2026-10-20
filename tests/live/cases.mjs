@@ -66,6 +66,24 @@ const CASES = [
       ctx.check('Move stayed within the 5-foot Step', Math.max(Math.abs(s.guardian.col - start.guardian.col), Math.abs(s.guardian.row - start.guardian.row)) === 1);
       ctx.check('Ally keeps full HP', s.ally.hp === s.ally.max);
     } },
+  { name: 'intercept-large-choose-square', description: 'Large guardian: Choose square picks the exact 2x2 placement clicked, not the suggestion.',
+    async run(ctx, h) {
+      // A 2x2 guardian west of the ally: its Step can end at (4,5), (4,6) or (4,7); those footprints overlap.
+      await h.arrange({ sizes: { guardian: 2 }, positions: { guardian: [3, 6], ally: [6, 6], enemy: [9, 6] } });
+      await ctx.rpc(ctx.gm, 'damage', { formula: '9[slashing]' });
+      await intercept(ctx, h, { value: 'manual', after: async () => {
+        await ctx.player.waitForTimeout(800);
+        // Cell (5,8) is covered only by the (4,7) footprint, the last choice in the list.
+        const point = await ctx.rpc(ctx.player, 'screenPoint', { col: 5, row: 8 });
+        await ctx.player.mouse.move(point.x, point.y);
+        await ctx.player.waitForTimeout(200);
+        await ctx.screenshot('picker');
+        await ctx.player.mouse.click(point.x, point.y);
+      } });
+      const s = await h.state();
+      ctx.check('Large guardian lands on the clicked placement', s.guardian.col === 4 && s.guardian.row === 7);
+      ctx.check('Ally keeps full HP', s.ally.hp === s.ally.max);
+    } },
   { name: 'intercept-decline', description: 'Player declines: the ally takes the damage and no reaction is spent.',
     async run(ctx, h) {
       await h.arrange({});
@@ -119,8 +137,30 @@ const CASES = [
       await intercept(ctx, h);
       const s = await h.state();
       ctx.check('Guardian Strode adjacent from 15 feet', adjacent(s.guardian, s.ally));
+      ctx.check('Guardian ends on the attacker\'s side, between ally and enemy', s.guardian.col > s.ally.col && adjacent(s.guardian, s.enemy));
       ctx.check('Ally keeps full HP', s.ally.hp === s.ally.max);
       ctx.check('Card notes a Stride', hasCard(s, 'intercept', 'Strides'));
+    } },
+  { name: 'intercept-walls', description: 'Intercept movement and Get Behind Me! never pass through walls.',
+    async run(ctx, h) {
+      // A wall east of the ally: the guardian may not Stride around to the attacker's side through it.
+      await h.arrange({ positions: { guardian: [3, 6], ally: [6, 6], enemy: [8, 6] }, taunted: ['enemy'], walls: [[700, 0, 700, 1400]] });
+      await ctx.rpc(ctx.gm, 'damage', { formula: '9[slashing]' });
+      await intercept(ctx, h);
+      let s = await h.state();
+      ctx.check('Guardian reached the ally', adjacent(s.guardian, s.ally));
+      ctx.check('Guardian stayed on its side of the wall', s.guardian.col < 7);
+      // Walls above and below the ally's row: Get Behind Me! can only move it along the row.
+      const start = await h.arrange({ feats: ['get-behind-me'], positions: { guardian: [4, 6], ally: [5, 6], enemy: [7, 6] },
+        walls: [[0, 600, 1400, 600], [0, 700, 1400, 700]] });
+      await ctx.rpc(ctx.gm, 'damage', { formula: '8[slashing]' });
+      await intercept(ctx, h);
+      await ctx.player.waitForTimeout(800);
+      await ctx.screenshot('picker');
+      await ctx.player.keyboard.press('Enter');
+      await h.until('Ally moved', x => SQUARE(x, 'ally') !== SQUARE(start, 'ally'));
+      s = await h.state();
+      ctx.check('Ally stayed between the walls', s.ally.row === 6);
     } },
   { name: 'intercept-shield-block', description: 'Shield Block toggle in the Intercept prompt spends a second reaction.',
     async run(ctx, h) {
@@ -458,6 +498,37 @@ const CASES = [
       await ctx.screenshot('badge');
       await ctx.gm.locator('.pf2e-guarder-reactions').first().click({ button: 'right' });
       await h.until('Right-click restores it', s => poolLeft(s) === 2);
+      for (let i = 0; i < 3; i++) await ctx.gm.locator('.pf2e-guarder-reactions').first().click({ button: 'right' });
+      await ctx.gm.waitForTimeout(800);
+      ctx.check('Restores stop at the guardian\'s maximum', poolLeft(await h.state()) === 2);
+    } },
+  { name: 'hud-tracker-badge', environment: { modules: ['pf2e-hud'] }, description: 'PF2e HUD tracker shows the reaction badge: click spends, right-click restores.',
+    async run(ctx, h) {
+      const hud = await ctx.gm.evaluate(() => game.modules.get('pf2e-hud')?.active === true);
+      if (!hud) return { blocked: 'pf2e-hud is not active' };
+      await h.arrange({});
+      const badge = page => page.locator('#pf2e-hud-tracker .pf2e-guarder-reactions');
+      try { await badge(ctx.gm).first().waitFor({ state: 'visible', timeout: 10000 }); }
+      catch { return { blocked: 'PF2e HUD tracker is not shown in this world' }; }
+      ctx.check('Badge sits on the guardian row only', await badge(ctx.gm).count() === 1);
+      // Visible means on screen inside its row, not clipped by the HUD's overflow rules.
+      const shown = await badge(ctx.gm).first().evaluate(element => {
+        const box = element.getBoundingClientRect();
+        const row = element.closest('.combatant').getBoundingClientRect();
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        return box.width > 8 && box.right <= row.right + 1 && box.bottom <= row.bottom + 1 && element.contains(hit);
+      });
+      ctx.check('Badge is actually visible in the HUD row', shown);
+      await ctx.eventually('Player sees the badge on their guardian', async () => await badge(ctx.player).count() === 1);
+      await badge(ctx.gm).first().click();
+      await h.until('HUD badge click spends one', s => poolLeft(s) === 1);
+      await ctx.eventually('HUD badge re-renders with one glyph left', async () => (await badge(ctx.gm).first().locator('.action-glyph').count()) === 1);
+      await ctx.screenshot('hud');
+      await badge(ctx.gm).first().click({ button: 'right' });
+      await h.until('HUD badge right-click restores it', s => poolLeft(s) === 2);
+      await badge(ctx.gm).first().click({ button: 'right' });
+      await ctx.gm.waitForTimeout(800);
+      ctx.check('Restoring at full adds nothing', poolLeft(await h.state()) === 2);
     } },
   { name: 'reaction-turn-reset', description: 'The guardian\'s turn start refreshes its reaction.',
     async run(ctx, h) {

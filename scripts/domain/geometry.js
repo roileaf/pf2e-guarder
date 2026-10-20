@@ -45,17 +45,24 @@ export function adjacentPositions(ally, mover) {
  * Returns the guardian's own footprint when it is already adjacent.
  * `blocked(candidate)` rejects occupied squares or paths through walls.
  */
-export function chooseInterceptPosition({ guardian, ally, budget, gridDistance = 5, blocked = () => false }) {
+export function chooseInterceptPosition({ guardian, ally, attacker = null, budget, gridDistance = 5, blocked = () => false }) {
   if (isAdjacent(guardian, ally, gridDistance)) return { ...guardian, cost: 0 };
-  return interceptCandidates({ guardian, ally, budget, gridDistance, blocked })[0] ?? null;
+  return interceptCandidates({ guardian, ally, attacker, budget, gridDistance, blocked })[0] ?? null;
 }
 
-/** Every open position adjacent to the ally the guardian can reach within `budget` feet, cheapest first. */
-export function interceptCandidates({ guardian, ally, budget, gridDistance = 5, blocked = () => false }) {
+/**
+ * Every open position adjacent to the ally the guardian can reach within `budget` feet. With an
+ * `attacker`, the squares closest to it come first (the guardian steps in toward the threat), then the cheapest.
+ */
+export function interceptCandidates({ guardian, ally, attacker = null, budget, gridDistance = 5, blocked = () => false }) {
   return adjacentPositions(ally, guardian)
-    .map((candidate) => ({ ...candidate, cost: moveCost(candidate.col - guardian.col, candidate.row - guardian.row, gridDistance) }))
-    .filter((candidate) => candidate.cost > 0 && candidate.cost <= budget && !blocked(candidate))
-    .sort((a, b) => a.cost - b.cost || a.row - b.row || a.col - b.col);
+    .map((candidate) => ({
+      ...candidate,
+      cost: moveCost(candidate.col - guardian.col, candidate.row - guardian.row, gridDistance),
+      threat: attacker ? creatureDistance(candidate, attacker, gridDistance) : 0,
+    }))
+    .filter((candidate) => candidate.cost > 0 && candidate.cost <= budget && !blocked(candidate) && !(attacker && overlaps(candidate, attacker)))
+    .sort((a, b) => a.threat - b.threat || a.cost - b.cost || a.row - b.row || a.col - b.col);
 }
 
 /** Every footprint the creature could reach moving up to `budget` feet (excluding staying put). */
@@ -103,4 +110,44 @@ export function chooseTowardPosition({ mover, target, budget, gridDistance = 5, 
     .filter((candidate) => candidate.distance < current && !blocked(candidate))
     .sort((a, b) => a.distance - b.distance || a.cost - b.cost || a.row - b.row || a.col - b.col);
   return options[0] ?? null;
+}
+
+/**
+ * The candidate footprint a pointer at grid coordinates (x, y) selects. Footprints of Large and bigger
+ * creatures overlap, so among those covering the pointer the one whose centre is nearest wins.
+ */
+export function candidateAtPoint(candidates, x, y) {
+  let best = null;
+  let bestDistance = Infinity;
+  for (const candidate of candidates) {
+    if (x < candidate.col || x >= candidate.col + candidate.w || y < candidate.row || y >= candidate.row + candidate.h) continue;
+    const distance = (candidate.col + candidate.w / 2 - x) ** 2 + (candidate.row + candidate.h / 2 - y) ** 2;
+    if (distance < bestDistance - 1e-9) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+/** Every grid cell covered by at least one footprint, once each. */
+export function coveredCells(candidates) {
+  const cells = new Map();
+  for (const { col, row, w, h } of candidates) {
+    for (let c = col; c < col + w; c++) for (let r = row; r < row + h; r++) cells.set(`${c},${r}`, { col: c, row: r });
+  }
+  return [...cells.values()];
+}
+
+/**
+ * The grid footprint of a token { x, y, width, height } (pixels / squares). Tiny creatures (under one
+ * square) may sit inside a square: they occupy the square holding their centre.
+ */
+export function footprintOf({ x, y, width, height }, size = 100) {
+  const w = Number(width) || 1;
+  const h = Number(height) || 1;
+  const cell = (position, span) => span < 1
+    ? Math.floor((Number(position) + span * size / 2) / size)
+    : Math.round(Number(position) / size);
+  return { col: cell(x, w), row: cell(y, h), w: Math.max(1, Math.round(w)), h: Math.max(1, Math.round(h)) };
 }

@@ -441,6 +441,16 @@
 
 .pf2e-guarder-reactions.spent { opacity: 0.55; }
 
+/* PF2e HUD tracker: a compact badge at the end of the combatant's icon row (its controls float left). */
+#pf2e-hud-tracker .details .controls .pf2e-guarder-reactions {
+  float: left;
+  margin-left: 4px;
+  padding: 0 4px;
+  gap: 2px;
+  font-size: 0.85em;
+  line-height: 1.2;
+}
+
 /* ---------- Chat cards (parchment, like Commanderer) ---------- */
 
 .chat-message.pf2e-guarder-message {

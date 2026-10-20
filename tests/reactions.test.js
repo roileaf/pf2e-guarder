@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { availableReactions, consumeReaction, describePool, initiativePool, turnStartPool } from "../scripts/domain/reactions.js";
+import { availableReactions, clampPool, consumeReaction, describePool, initiativePool, turnStartPool } from "../scripts/domain/reactions.js";
 
 test("Ever Ready grants a guardian-only reaction on initiative", () => {
   assert.deepEqual(initiativePool({ everReady: true }), { general: 1, guardian: 1 });
@@ -29,4 +29,11 @@ test("an untracked pool is unlimited", () => {
   assert.equal(availableReactions(null), Infinity);
   assert.equal(describePool(null), "untracked");
   assert.equal(describePool({ general: 1, guardian: 1 }), "1 reaction + 1 guardian-only");
+});
+
+test("restoring reactions never exceeds what the guardian can hold", () => {
+  const max = { general: 1, guardian: 1 };
+  assert.deepEqual(clampPool({ general: 1, guardian: 12 }, max), { general: 1, guardian: 1 });
+  assert.deepEqual(clampPool({ general: 3, guardian: 0 }, { general: 1, guardian: 0 }), { general: 1, guardian: 0 });
+  assert.deepEqual(clampPool({ general: -2, guardian: 1.7 }, { general: 1, guardian: 2 }), { general: 0, guardian: 1 });
 });

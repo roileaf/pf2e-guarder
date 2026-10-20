@@ -6,6 +6,7 @@ import { dismissPrompts, timedPrompt } from "../ui/prompt.js";
 import { unbelievableCard, unbelievablePromptBody } from "../ui/views.js";
 import {
   alive, controllingUser, footprint, gridDistance, hasSlug, incapacitated, isAlly, landSpeed, notify, sceneTokenFor, tokenDistance,
+  wallBlocksMove,
 } from "./actors.js";
 import { actorReach } from "./followups.js";
 import { reactionPool, reactionsLeft, spendReactions } from "./reactions.js";
@@ -87,7 +88,7 @@ export async function moveToward(guardianToken, attackerToken, budget) {
     target: footprint(attackerToken),
     budget,
     gridDistance: gridDistance(scene),
-    blocked: (candidate) => others.some((other) => overlaps(candidate, other)),
+    blocked: (candidate) => others.some((other) => overlaps(candidate, other)) || wallBlocksMove(guardianToken, candidate),
   });
   if (!position) return 0;
   await guardianToken.update({ x: position.col * size, y: position.row * size });

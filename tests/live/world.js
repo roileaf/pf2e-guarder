@@ -228,8 +228,14 @@ export async function arrange(context) {
   for (const key of keys) {
     const [col, row] = positions[key];
     const document = token(key);
+    const span = spec.sizes?.[key] ?? 1;
+    if (document.width !== span || document.height !== span) await document.update({ width: span, height: span }, { animate: false });
     if (document.x !== col * GRID || document.y !== row * GRID) await document.update({ x: col * GRID, y: row * GRID }, { animate: false });
   }
+  // Walls (pixel segments) for movement cases; none otherwise.
+  const scene = game.scenes.get(context.fixture.scene);
+  if (scene.walls.size) await scene.deleteEmbeddedDocuments('Wall', scene.walls.map(w => w.id));
+  if (spec.walls?.length) await scene.createEmbeddedDocuments('Wall', spec.walls.map(c => ({ c, move: CONST.WALL_SENSE_TYPES.NORMAL, sight: CONST.WALL_SENSE_TYPES.NORMAL })));
   // 4. Requested feats back on.
   const have = new Set(guardian.items.map(i => i.slug));
   const add = [];
@@ -417,6 +423,13 @@ export async function showCombat(context) {
   ui.sidebar?.expand?.();
   await ui.combat.render({ force: true, combat });
   await pause(300);
+}
+
+/** Browser coordinates of the centre of grid cell (col, row) on this client's canvas. */
+export function screenPoint(context) {
+  fixture(context);
+  const point = canvas.clientCoordinatesFromCanvas({ x: (context.col + 0.5) * GRID, y: (context.row + 0.5) * GRID });
+  return { x: point.x, y: point.y };
 }
 
 export async function moveToken(context) {

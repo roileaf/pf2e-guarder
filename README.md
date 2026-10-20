@@ -5,6 +5,17 @@ Guardian class automation for Pathfinder Second Edition on Foundry VTT v14 (PF2e
 The goal is fewer interruptions in combat: the module handles what it can determine reliably,
 and players and the GM can always override a decision.
 
+## Installation
+
+In Foundry's **Install Module** dialog, paste this manifest URL:
+
+```
+https://raw.githubusercontent.com/roileaf/pf2e-guarder/main/module.json
+```
+
+The link never changes and always offers the newest release, pre-releases included, so Foundry's update check
+keeps working. If you installed 0.1.0, reinstall once with this link.
+
 ## Features
 
 ### Intercept Attack
