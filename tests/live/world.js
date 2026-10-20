@@ -39,6 +39,11 @@ const OPTIONAL = {
   clang: [['pf2e.feats-srd', 'xaYEUVetHiRgmVhd']],
   'tough-to-kill': [['pf2e.classfeatures', 'U9t3cmF4eXFiF7oI']],
   'reaction-time': [['pf2e.classfeatures', 'qgEIQPhtEV6d1zB2']],
+  'boundless-reprisals': [['pf2e.feats-srd', 'IMArawT1Sc2PTcYM']],
+  'paragons-guard': [['pf2e.feats-srd', 'hPDerDCYmag3s0dP']],
+  'tough-cookie': [['pf2e.feats-srd', 'RNBr91uB7lX9DldN']],
+  'shield-salvation': [['pf2e.feats-srd', '4bB3N36DmqllGJNx']],
+  'opening-stance': [['pf2e.feats-srd', 'yeSyGnYDkl2GUNmu']],
 };
 // Reactions the module offers to any character holding them; stripped from the non-guardians.
 const REACTION_SLUGS = [...Object.keys(OPTIONAL), 'shield-block', 'intercept-attack', 'taunt'];
@@ -218,11 +223,12 @@ export async function arrange(context) {
     const transient = document.items.filter(i => ['effect', 'condition'].includes(i.type)).map(i => i.id);
     if (transient.length) await document.deleteEmbeddedDocuments('Item', transient);
     await document.update({ 'system.attributes.hp.value': document.system.attributes.hp.max, 'system.attributes.hp.temp': 0,
-      [`flags.${SCOPE}.-=toughToKill`]: null });
+      [`flags.${SCOPE}.-=toughToKill`]: null, [`flags.${SCOPE}.-=toughCookie`]: null });
   }
   await guardian.update({ 'system.resources.mythicPoints.value': spec.mythicPoints ?? 0 });
   const shield = guardian.items.find(i => i.type === 'shield');
-  if (shield) await shield.update({ 'system.hp.value': shield.system.hp.max });
+  if (shield) await shield.update({ 'system.hp.value': shield.system.hp.max, [`flags.${SCOPE}.-=shieldSalvation`]: null });
+  if (spec.hp !== undefined) await guardian.update({ 'system.attributes.hp.value': spec.hp });
   // 3. Positions (column, row in squares), without animation.
   const positions = { guardian: [4, 6], ally: [6, 6], enemy: [8, 6], enemy2: [20, 2], ...(spec.positions ?? {}) };
   for (const key of keys) {
@@ -246,6 +252,11 @@ export async function arrange(context) {
   const keepUp = guardian.items.find(i => i.slug === 'keep-up-the-good-fight' && i.system.frequency?.max);
   if (keepUp) await keepUp.update({ 'system.frequency.value': keepUp.system.frequency.max });
   // 5. Reactions, shield, stance and taunt.
+  if (combat.turn !== combat.turns.findIndex(c => c.tokenId === token('enemy2').id)) {
+    await combat.update({ turn: combat.turns.findIndex(c => c.tokenId === token('enemy2').id) });
+  }
+  const guardianCombatant = combat.combatants.find(c => c.actorId === guardian.id);
+  await guardianCombatant.update({ initiative: 20, [`flags.${SCOPE}.-=openingStance`]: null });
   if (combat.turn !== combat.turns.findIndex(c => c.tokenId === token('enemy2').id)) {
     await combat.update({ turn: combat.turns.findIndex(c => c.tokenId === token('enemy2').id) });
   }
@@ -440,6 +451,22 @@ export async function moveToken(context) {
   await document.object?.movementAnimationPromise;
 }
 
+export async function setShieldHp(context) {
+  guard(context, true);
+  const { actor } = fixture(context);
+  const shield = actor('guardian').items.find(i => i.type === 'shield');
+  await shield.update({ 'system.hp.value': context.value });
+}
+
+/** Re-roll the guardian's initiative to `value` (clearing it first, as a fresh roll does). */
+export async function setInitiative(context) {
+  guard(context, true);
+  const { actor, combat } = fixture(context);
+  const combatant = combat.combatants.find(c => c.actorId === actor('guardian').id);
+  await combatant.update({ initiative: null });
+  await combatant.update({ initiative: context.value });
+}
+
 export async function setDying(context) {
   guard(context, true);
   const { actor } = fixture(context);
@@ -477,7 +504,7 @@ export async function snapshot(context) {
   const shield = guardian.attributes.shield;
   return {
     guardian: { ...view('guardian'), uuid: guardian.uuid, mythicPoints: guardian.system.resources?.mythicPoints?.value ?? null,
-      shield: { raised: shield.raised, hp: shield.hp?.value ?? null },
+      shield: { raised: shield.raised, hp: shield.hp?.value ?? null, destroyed: shield.destroyed },
       toughToKill: guardian.flags?.[SCOPE]?.toughToKill ?? null,
       intercept: guardian.items.find(i => i.slug === 'intercept-attack' && i.type === 'action')?.system.frequency ?? null,
       keepUp: guardian.items.find(i => i.slug === 'keep-up-the-good-fight')?.system.frequency ?? null },

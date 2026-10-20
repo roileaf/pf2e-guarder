@@ -409,6 +409,8 @@
 .guarder-pips .action-glyph { font-size: 15px; line-height: 1; }
 .guarder-pips .action-glyph.general { color: var(--grd-accent-bright); }
 .guarder-pips .action-glyph.guardian { color: var(--grd-ember-bright); }
+/* Boundless Reprisals: this enemy turn only, gold so it reads as temporary. */
+.guarder-pips .action-glyph.boundless { color: var(--grd-accent-bright); }
 .guarder-pips .action-glyph.spent { opacity: 0.35; }
 .guarder-pips.untracked { color: var(--grd-text-muted); }
 
@@ -564,6 +566,7 @@
 
 .pf2e-guarder-message .guarder-pips .action-glyph.general { color: var(--grd-chat-gold, #9a7333); }
 .pf2e-guarder-message .guarder-pips .action-glyph.guardian { color: var(--grd-chat-ember, #b4561a); }
+.pf2e-guarder-message .guarder-pips .action-glyph.boundless { color: var(--grd-chat-gold, #9a7333); }
 .pf2e-guarder-message .guarder-pips.untracked { color: var(--grd-chat-muted, #625d54); }
 
 .guarder-card-actions { display: flex; flex-direction: column; gap: 5px; }
@@ -762,6 +765,7 @@
 .pf2e-guarder .guarder-reaction-control .action-glyph { font-size: 22px; line-height: 1; }
 .pf2e-guarder .guarder-reaction-control .action-glyph.general { color: var(--grd-accent-bright); }
 .pf2e-guarder .guarder-reaction-control .action-glyph.guardian { color: var(--grd-ember-bright); }
+.pf2e-guarder .guarder-reaction-control .action-glyph.boundless { color: var(--grd-accent-bright); }
 .pf2e-guarder .guarder-reaction-control .action-glyph.spent { color: var(--grd-text-muted); opacity: 0.35; }
 .pf2e-guarder button.guarder-glyph-button:hover { transform: translateY(-1px); filter: drop-shadow(0 0 4px rgba(245, 162, 90, 0.6)); opacity: 1; }
 .pf2e-guarder button.guarder-glyph-button:focus-visible { outline: 2px solid var(--grd-accent-bright); outline-offset: 2px; border-radius: 4px; }

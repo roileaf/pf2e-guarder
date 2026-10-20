@@ -1,7 +1,7 @@
 import { FLAG_SCOPE, SLUGS } from "../constants.js";
-import { availableReactions, clampPool, consumeReaction, describePool, initiativePool, turnStartPool } from "../domain/reactions.js";
+import { availableReactions, clampPool, consumeReaction, describePool, initiativePool, turnStartPool, withBoundless } from "../domain/reactions.js";
 import { setting } from "../settings.js";
-import { hasSlug, isGuardian } from "./actors.js";
+import { hasSlug, isEnemy, isGuardian } from "./actors.js";
 import { isResponsibleGM, registerOperation, requestOperation } from "./socket.js";
 import { sundryReactionUsed } from "./sundry.js";
 
@@ -11,7 +11,20 @@ function guardianTraits(actor) {
   return {
     everReady: hasSlug(actor, SLUGS.everReady),
     reactionTime: hasSlug(actor, SLUGS.reactionTime),
+    boundless: hasSlug(actor, SLUGS.boundlessReprisals),
   };
+}
+
+/** Boundless Reprisals: is it an enemy's turn in this guardian's combat right now? */
+function enemyTurn(actor, combat) {
+  const current = combat?.combatant?.actor;
+  return Boolean(current && isEnemy(actor, current));
+}
+
+function basePool(actor, kind, combat) {
+  const traits = guardianTraits(actor);
+  const pool = kind === "initiative" ? initiativePool(traits) : turnStartPool(traits);
+  return traits.boundless ? withBoundless(pool, enemyTurn(actor, combat)) : pool;
 }
 
 function combatantIn(combat, actor) {
@@ -38,7 +51,7 @@ export function reactionPool(actor) {
   if (!setting("trackReactions")) return null;
   const combatant = combatantFor(actor);
   if (!combatant?.parent?.started) return null;
-  return combatant.flags?.[FLAG_SCOPE]?.[FLAG_KEY] ?? initiativePool(guardianTraits(actor));
+  return combatant.flags?.[FLAG_SCOPE]?.[FLAG_KEY] ?? basePool(actor, "initiative", combatant.parent);
 }
 
 export function reactionsLeft(actor) {
@@ -82,7 +95,9 @@ export async function spendReactions(actor, count = 1, { sundry = true } = {}) {
 
 /** The most reactions this guardian can hold at once. */
 export function maxPool(actor) {
-  return initiativePool(guardianTraits(actor));
+  const traits = guardianTraits(actor);
+  const max = initiativePool(traits);
+  return traits.boundless ? { ...max, boundless: 1 } : max;
 }
 
 export async function setReactions(actor, pool) {
@@ -95,9 +110,18 @@ export async function setReactions(actor, pool) {
 async function resetCombatant(combatant, kind) {
   const actor = combatant?.actor;
   if (!actor || !isGuardian(actor)) return;
-  const traits = guardianTraits(actor);
-  const pool = kind === "initiative" ? initiativePool(traits) : turnStartPool(traits);
-  await storePool(combatant, pool);
+  await storePool(combatant, basePool(actor, kind, combatant.parent));
+}
+
+/** Boundless Reprisals: grant the extra reaction when an enemy's turn starts, drop it when any turn ends. */
+async function refreshBoundless(combat) {
+  for (const combatant of combat.combatants) {
+    const actor = combatant.actor;
+    if (!actor || combatant.id === combat.combatant?.id || !isGuardian(actor) || !hasSlug(actor, SLUGS.boundlessReprisals)) continue;
+    const pool = combatant.flags?.[FLAG_SCOPE]?.[FLAG_KEY] ?? basePool(actor, "initiative", combat);
+    const next = withBoundless(pool, enemyTurn(actor, combat));
+    if (next.boundless !== pool.boundless) await storePool(combatant, next);
+  }
 }
 
 export function registerReactionTracking() {
@@ -114,5 +138,6 @@ export function registerReactionTracking() {
     if (!isResponsibleGM(userId) || !setting("trackReactions")) return;
     if (!("turn" in changed) && !("round" in changed)) return;
     if (combat.combatant) await resetCombatant(combat.combatant, "turn");
+    await refreshBoundless(combat);
   });
 }

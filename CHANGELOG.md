@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- High-level Guardian feats:
+  - **Boundless Reprisals**: an extra guardian-only reaction at the start of each enemy's turn, lasting that turn. It is
+    spent before your other reactions and shows as its own glyph in the panel and trackers.
+  - **Paragon's Guard**: posting the stance (or its chat/panel button) keeps your shield raised while you're in it, so
+    Shield Block and Shield from Arrows are always available. Entering another stance ends it.
+  - **Tough Cookie**: posting it at half HP or less grants temporary HP equal to half your maximum for 1 minute, once
+    per day (with an override prompt).
+  - **Shield Salvation**: a Shield Block that would destroy your shield leaves it at 1 HP, once per shield per day.
+  - **Opening Stance**: rolling initiative asks whether to drop into one of your stances for free.
+
 ## 0.1.1
 
 **Install / update link changed.** Use `https://raw.githubusercontent.com/roileaf/pf2e-guarder/main/module.json`.

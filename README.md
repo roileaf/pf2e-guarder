@@ -72,6 +72,18 @@ the existing attack card and note the change on it.
 - Reactions used outside the module also count: PF2e's own **Shield Block** button (which also triggers
   Quick Vengeance) and reaction feats posted from the sheet spend a tracked reaction.
 
+### High-level feats
+
+- **Boundless Reprisals**: at the start of each enemy's turn you gain a guardian-only reaction for that turn. It is
+  spent first and shown as its own glyph in the panel and trackers.
+- **Paragon's Guard**: a stance (chat card, panel, or posting it from the sheet) that keeps your shield raised, using
+  PF2e's own Raise a Shield rule. Only one stance at a time: entering Hampering Stance ends it, and vice versa.
+- **Tough Cookie**: posting it at half HP or less gives temporary HP equal to half your maximum for 1 minute (PF2e's
+  TempHP rule removes them when the effect ends). Once per day; an override prompt covers the exceptions.
+- **Shield Salvation**: when a Shield Block (PF2e's button or Intercept Attack's toggle) would destroy your shield, it
+  stays at 1 HP instead, once per shield until the next day.
+- **Opening Stance**: when you roll initiative, you're asked which of your stances to enter for free.
+
 ### Hampering Stance
 
 Posting Hampering Stance from the sheet (or the Enter/End button on its chat card, or the Guardian panel)

@@ -25,6 +25,11 @@ export const AUTOMATED = Object.freeze({
   "hampering-stance": "5-foot difficult terrain for enemies that follows you; enables Not So Fast!",
   "keep-up-the-good-fight": "Prompted at 0 HP: back to 1 HP, wounded +1, temporary HP",
   "tough-to-kill": "First dying 3+ each day becomes dying 2",
+  "boundless-reprisals": "Extra guardian-only reaction during each enemy's turn",
+  "paragons-guard": "Stance that keeps your shield raised; panel and chat buttons",
+  "tough-cookie": "Temporary HP for 1 minute when posted at half HP or less, once per day",
+  "shield-salvation": "Shield Block can't destroy your shield: it stays at 1 HP, once per shield per day",
+  "opening-stance": "Prompted to enter a stance when you roll initiative",
 });
 
 export const NATIVE = Object.freeze([

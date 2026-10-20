@@ -13,6 +13,7 @@ export const SLUGS = Object.freeze({
   longDistanceTaunt: "long-distance-taunt",
   shieldBlock: "shield-block",
   tauntOffGuardEffect: "effect-taunted-off-guard",
+  boundlessReprisals: "boundless-reprisals",
 });
 
 export const SYSTEM_UUIDS = Object.freeze({

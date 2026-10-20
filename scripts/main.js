@@ -10,6 +10,7 @@ import { reactionPool, registerReactionTracking, setReactions } from "./foundry/
 import { applyTauntFromMessage, applyTauntOffGuard, registerTaunt, registerTauntChatButtons } from "./foundry/taunt.js";
 import { openGuardianPanel, registerGuardianPanel, registerGuardianPanelOperations } from "./ui/panel.js";
 import { registerReactionBadges } from "./ui/tracker.js";
+import { registerHighLevelFeats } from "./foundry/feats.js";
 
 Hooks.once("init", registerSettings);
 // Render hooks must exist before the chat log, sheets and combat tracker first render.
@@ -29,6 +30,7 @@ Hooks.once("ready", () => {
   registerHamperingStance();
   registerTaunt();
   registerGuardianPanelOperations();
+  registerHighLevelFeats();
 
   const module = game.modules.get(MODULE_ID);
   module.api = Object.freeze({

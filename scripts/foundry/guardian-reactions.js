@@ -17,7 +17,8 @@ import { combatantFor, reactionPool, reactionsLeft, spendReactions } from "./rea
 import { broadcast, isResponsibleGM, registerListener, registerOperation, requestOperation } from "./socket.js";
 import { moveToward } from "./unbelievable.js";
 import { sundryCountsPostedReactions, sundryCountsStrikes } from "./sundry.js";
-import { setHamperingStance } from "./hampering.js";
+import { toughCookie } from "./feats.js";
+import { activeStance, setStance, STANCES } from "./hampering.js";
 
 const ATTACK_TYPES = ["attack-roll", "spell-attack-roll"];
 const KEEP_UP_EFFECT = "Compendium.pf2e.feat-effects.Item.AwJBbxeoE0YhmT57";
@@ -521,8 +522,12 @@ async function onStanceOrReactionPosted(message) {
   const item = message.item;
   const actor = message.actor;
   if (!item || !actor || actor.type !== "character" || message.flags?.pf2e?.context?.type) return;
-  if (item.slug === "hampering-stance") {
-    if (!inHamperingStance(actor)) await setHamperingStance(actor, true);
+  if (STANCES[item.slug]) {
+    if (activeStance(actor) !== item.slug) await setStance(actor, item.slug, true);
+    return;
+  }
+  if (item.slug === "tough-cookie") {
+    await toughCookie(actor, item);
     return;
   }
   // Sundry's own tracker already marks reaction items posted to chat.

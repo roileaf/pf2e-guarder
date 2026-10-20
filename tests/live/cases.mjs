@@ -424,7 +424,7 @@ const CASES = [
         ? behavior.type === 'pf2e-toolbelt.difficult-terrain' && behavior.alliance === 'enemies' : behavior.type === 'modifyMovementCost');
       await ctx.rpc(ctx.gm, 'moveToken', { key: 'guardian', col: 4, row: 9 });
       await h.until('Region stays attached after moving', x => x.regions.length === 1 && x.regions[0].attached === ctx.fixture.tokens.guardian);
-      const card = ctx.player.locator('[data-guarder-action="hampering-stance"]').last();
+      const card = ctx.player.locator('[data-guarder-action="stance"][data-stance="hampering-stance"]').last();
       await ctx.eventually('Card offers End', async () => /End Hampering Stance/.test(await card.innerText()));
       await ctx.screenshot('stance');
       await card.click();
@@ -501,6 +501,75 @@ const CASES = [
       for (let i = 0; i < 3; i++) await ctx.gm.locator('.pf2e-guarder-reactions').first().click({ button: 'right' });
       await ctx.gm.waitForTimeout(800);
       ctx.check('Restores stop at the guardian\'s maximum', poolLeft(await h.state()) === 2);
+    } },
+  // ------------------------------------------------------------ High-level feats
+  { name: 'boundless-reprisals', description: 'Boundless Reprisals: an extra guardian reaction only during enemy turns, spent first.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['boundless-reprisals'], pool: { general: 1, guardian: 0 } });
+      await ctx.rpc(ctx.gm, 'advanceTurnTo', { key: 'ally' });
+      await h.until('No Boundless reaction on an ally\'s turn', s => (s.pool?.boundless ?? 0) === 0);
+      await ctx.rpc(ctx.gm, 'advanceTurnTo', { key: 'enemy' });
+      await h.until('Boundless reaction at the start of an enemy\'s turn', s => s.pool?.boundless === 1 && s.pool?.general === 1);
+      await ctx.eventually('Panel shows the Boundless glyph', async () => await h.panel(ctx.player).locator('.action-glyph.boundless').count() === 1);
+      await ctx.screenshot('boundless');
+      await ctx.rpc(ctx.gm, 'damage', { formula: '8[slashing]' });
+      await intercept(ctx, h);
+      await h.until('Intercept spends the Boundless reaction first', s => s.pool?.boundless === 0 && s.pool?.general === 1);
+      await ctx.rpc(ctx.gm, 'advanceTurnTo', { key: 'ally' });
+      await h.until('Still none on the next non-enemy turn', s => (s.pool?.boundless ?? 0) === 0);
+    } },
+  { name: 'paragons-guard', description: 'Paragon\'s Guard: posting the stance keeps the shield raised; entering Hampering Stance ends it.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['paragons-guard', 'hampering-stance'] });
+      await ctx.rpc(ctx.player, 'postItem', { slug: 'paragons-guard' });
+      await h.until('Stance effect keeps the shield raised', s => s.guardian.effects.includes('guarder-paragons-guard') && s.guardian.shield.raised);
+      const card = ctx.player.locator('[data-guarder-action="stance"][data-stance="paragons-guard"]').last();
+      await ctx.eventually('Card offers End Paragon\'s Guard', async () => /End Paragon/.test(await card.innerText()));
+      await ctx.screenshot('stance');
+      await h.panel(ctx.player).locator('[data-action="toggleStance"][data-slug="hampering-stance"]').click();
+      await h.until('Hampering Stance replaces Paragon\'s Guard', s => s.guardian.effects.includes('guarder-hampering-stance')
+        && !s.guardian.effects.includes('guarder-paragons-guard') && !s.guardian.shield.raised);
+      await h.panel(ctx.player).locator('[data-action="toggleStance"][data-slug="paragons-guard"]').click();
+      await h.until('Panel switches back to Paragon\'s Guard', s => s.guardian.effects.includes('guarder-paragons-guard') && !s.guardian.effects.includes('guarder-hampering-stance'));
+    } },
+  { name: 'tough-cookie', description: 'Tough Cookie: half-max temporary HP at half HP or less, once per day, with an override prompt.',
+    async run(ctx, h) {
+      const start = await h.arrange({ feats: ['tough-cookie'], hp: 20 });
+      await ctx.rpc(ctx.player, 'postItem', { slug: 'tough-cookie' });
+      const amount = Math.floor(start.guardian.max / 2);
+      await h.until('Temporary HP equal to half maximum', s => s.guardian.temp === amount && s.guardian.effects.includes('guarder-tough-cookie'));
+      ctx.check('Tough Cookie card posted', hasCard(await h.state(), 'reaction', 'Tough Cookie'));
+      await ctx.rpc(ctx.player, 'postItem', { slug: 'tough-cookie' });
+      await h.prompt(ctx.player, 'Tough Cookie').first().waitFor({ state: 'visible' });
+      await ctx.screenshot('again');
+      await h.choose(ctx.player, 'Tough Cookie', 'cancel');
+      ctx.check('Second use the same day is refused when cancelled', (await h.state()).messages.filter(m => m.card === 'reaction' && m.text.includes('Tough Cookie')).length === 1);
+    } },
+  { name: 'shield-salvation', description: 'Shield Salvation: a Shield Block that would destroy the shield leaves it at 1 HP, once per day.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['shield-salvation'], shieldRaised: true, positions: { guardian: [4, 6], ally: [12, 9], enemy: [5, 6] } });
+      // 11 HP: intact (Broken Threshold 10), so it can Shield Block; 30 damage minus hardness 5 would destroy it.
+      await ctx.rpc(ctx.gm, 'setShieldHp', { value: 11 });
+      await ctx.rpc(ctx.gm, 'damage', { target: 'guardian', formula: '30[slashing]', shieldBlock: true });
+      await h.settle();
+      await h.until('Shield survives at 1 HP', s => s.guardian.shield.hp === 1 && !s.guardian.shield.destroyed);
+      ctx.check('Shield Salvation card posted', hasCard(await h.state(), 'reaction', 'Shield Salvation'));
+      await ctx.rpc(ctx.gm, 'setShieldHp', { value: 11 });
+      await ctx.rpc(ctx.gm, 'damage', { target: 'guardian', formula: '30[slashing]', shieldBlock: true });
+      await h.settle();
+      await h.until('Second time the same day the shield is destroyed', s => s.guardian.shield.hp === 0);
+    } },
+  { name: 'opening-stance', description: 'Opening Stance: rolling initiative offers a free stance.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['opening-stance', 'hampering-stance', 'paragons-guard'] });
+      await ctx.rpc(ctx.gm, 'setInitiative', { value: 18 });
+      await h.prompt(ctx.player, 'Opening Stance').first().waitFor({ state: 'visible' });
+      ctx.check('Both stances are offered', await h.prompt(ctx.player, 'Opening Stance').locator('[data-value="hampering-stance"], [data-value="paragons-guard"]').count() === 2);
+      await ctx.screenshot('prompt');
+      await h.choose(ctx.player, 'Opening Stance', 'paragons-guard');
+      await h.until('Chosen stance entered', s => s.guardian.effects.includes('guarder-paragons-guard') && s.guardian.shield.raised);
+      await ctx.rpc(ctx.gm, 'setInitiative', { value: 12 });
+      await h.noPrompt(ctx.player, 'Opening Stance');
     } },
   { name: 'hud-tracker-badge', environment: { modules: ['pf2e-hud'] }, description: 'PF2e HUD tracker shows the reaction badge: click spends, right-click restores.',
     async run(ctx, h) {

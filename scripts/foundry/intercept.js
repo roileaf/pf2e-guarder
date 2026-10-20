@@ -11,6 +11,7 @@ import {
 } from "./actors.js";
 import { attackFacts, getBehindMe, grantQuickVengeance } from "./followups.js";
 import { afterDamage } from "./guardian-reactions.js";
+import { duringShieldBlock } from "./feats.js";
 import { moveAdjacent, pickAdjacent } from "./movement.js";
 import { combatantFor, reactionPool, reactionsLeft, spendReactions } from "./reactions.js";
 import { broadcast, registerListener, registerOperation, requestOperation } from "./socket.js";
@@ -364,7 +365,10 @@ export function registerInterceptAttack() {
     const hpBefore = this.hitPoints?.value ?? null;
     const conditionsBefore = (this.itemTypes?.condition ?? []).map((condition) => condition.slug);
     const apply = async (applied) => {
-      const result = await applyDamage.call(this, applied, ...args);
+      // Shield Salvation needs to know that a shield takes damage from a Shield Block.
+      const result = applied?.shieldBlockRequest
+        ? await duringShieldBlock(this, () => applyDamage.call(this, applied, ...args))
+        : await applyDamage.call(this, applied, ...args);
       // Keep Up the Good Fight and native Shield Block react to the damage that actually landed.
       void afterDamage(this, applied, hpBefore, conditionsBefore).catch((error) => console.error(`${MODULE_ID} | after damage`, error));
       return result;

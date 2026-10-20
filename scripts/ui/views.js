@@ -26,8 +26,9 @@ export function reactionPips(pool) {
   const pips = [];
   for (let index = 0; index < (pool.general ?? 0); index++) pips.push(actionGlyph("R", "general"));
   for (let index = 0; index < (pool.guardian ?? 0); index++) pips.push(actionGlyph("R", "guardian"));
+  for (let index = 0; index < (pool.boundless ?? 0); index++) pips.push(actionGlyph("R", "boundless"));
   if (!pips.length) pips.push(actionGlyph("R", "spent"));
-  const tooltip = `${pool.general ?? 0} reaction${pool.general === 1 ? "" : "s"}${pool.guardian ? ` + ${pool.guardian} guardian-only` : ""}`;
+  const tooltip = `${pool.general ?? 0} reaction${pool.general === 1 ? "" : "s"}${pool.guardian ? ` + ${pool.guardian} guardian-only` : ""}${pool.boundless ? " + 1 Boundless Reprisals (this turn)" : ""}`;
   return `<span class="guarder-pips" data-tooltip="${escapeHtml(tooltip)}">${pips.join("")}</span>`;
 }
 
@@ -222,9 +223,9 @@ export function reactionPromptBody(view) {
   return `<header class="guarder-hero">
       ${portrait(view.guardianImg, view.guardianName, "large")}
       <div class="guarder-identity">
-        <span class="guarder-eyebrow">${actionGlyph("R")} ${escapeHtml(view.eyebrow)}</span>
+        <span class="guarder-eyebrow">${actionGlyph(view.glyph ?? "R")} ${escapeHtml(view.eyebrow)}</span>
         <h2>${escapeHtml(view.guardianName)}</h2>
-        <p>${reactionPips(view.pool)}</p>
+        ${view.hidePool ? "" : `<p>${reactionPips(view.pool)}</p>`}
       </div>
     </header>
     ${threat}

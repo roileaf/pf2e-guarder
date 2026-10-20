@@ -24,13 +24,14 @@ function empty(text) {
  */
 export function reactionSlots(view) {
   const slots = [];
-  for (const kind of ["general", "guardian"]) {
+  for (const kind of ["general", "guardian", "boundless"]) {
+    if (kind === "boundless" && view.poolMax?.boundless === undefined) continue;
     const available = Math.max(0, view.pool?.[kind] ?? 0);
     const total = Math.max(available, view.poolMax?.[kind] ?? 0);
     for (let index = 0; index < total; index++) slots.push({ kind, spent: index >= available });
   }
   return slots.map(({ kind, spent }) => {
-    const label = kind === "guardian" ? "Guardian-only reaction" : "Reaction";
+    const label = { guardian: "Guardian-only reaction", boundless: "Boundless Reprisals (this enemy turn only)" }[kind] ?? "Reaction";
     const tooltip = `${label}${spent ? " (spent)" : ""}${view.isGM ? ` — click to ${spent ? "restore" : "spend"}` : ""}`;
     const classes = `action-glyph ${kind}${spent ? " spent" : ""}`;
     return view.isGM
