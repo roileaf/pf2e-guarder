@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { adjacentPositions, chooseInterceptPosition, creatureDistance, isAdjacent, moveCost } from "../scripts/domain/geometry.js";
+import { adjacentPositions, chooseInterceptPosition, creatureDistance, interceptCandidates, isAdjacent, moveCost } from "../scripts/domain/geometry.js";
 
 const at = (col, row, w = 1, h = 1) => ({ col, row, w, h });
 
@@ -40,4 +40,14 @@ test("blocked squares are skipped and out-of-budget squares rejected", () => {
   assert.equal(chooseInterceptPosition({ guardian: at(3, 5), ally: at(5, 5), budget: 5, blocked }), null);
   const stride = chooseInterceptPosition({ guardian: at(3, 5), ally: at(5, 5), budget: 25, blocked });
   assert.ok(stride && stride.col !== 4 && stride.cost > 5);
+});
+
+test("Choose square offers every open square next to the ally within the Step", () => {
+  const options = interceptCandidates({ guardian: at(0, 1), ally: at(2, 1), budget: 5 });
+  assert.deepEqual(options.map(({ col, row }) => [col, row]), [[1, 0], [1, 1], [1, 2]]);
+  assert.ok(options.every((option) => option.cost === 5));
+  const blocked = interceptCandidates({ guardian: at(0, 1), ally: at(2, 1), budget: 5, blocked: (c) => c.row === 1 });
+  assert.deepEqual(blocked.map(({ col, row }) => [col, row]), [[1, 0], [1, 2]]);
+  assert.equal(interceptCandidates({ guardian: at(0, 1), ally: at(3, 1), budget: 5 }).length, 0);
+  assert.ok(interceptCandidates({ guardian: at(0, 1), ally: at(3, 1), budget: 10 }).length > 0);
 });

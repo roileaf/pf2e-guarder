@@ -14,9 +14,10 @@ function contains(candidate, col, row) {
  * @param {object} options
  * @param {Array<{col,row,w,h}>} options.candidates  legal footprints, best first
  * @param {string} options.prompt                    notification text
+ * @param {number} [options.timeoutMs]               give up (resolve null) after this long
  * @returns {Promise<object|null>} the chosen candidate, or null when cancelled
  */
-export function pickSquare({ candidates, prompt }) {
+export function pickSquare({ candidates, prompt, timeoutMs = 0 }) {
   cancelActive?.();
   if (!globalThis.canvas?.ready || !candidates.length) return Promise.resolve(null);
   const stage = canvas.stage;
@@ -52,7 +53,9 @@ export function pickSquare({ candidates, prompt }) {
       const row = Math.floor(point.y / size);
       return candidates.find((candidate) => contains(candidate, col, row)) ?? null;
     };
+    let timer = null;
     const cleanup = (result = null) => {
+      clearTimeout(timer);
       view.removeEventListener("pointermove", move, true);
       view.removeEventListener("pointerdown", click, true);
       view.removeEventListener("contextmenu", cancel, true);
@@ -91,6 +94,7 @@ export function pickSquare({ candidates, prompt }) {
     view.addEventListener("contextmenu", cancel, true);
     document.addEventListener("keydown", key, true);
     draw(null);
+    if (timeoutMs > 0) timer = setTimeout(() => cleanup(), timeoutMs);
     ui.notifications.info(prompt);
   });
 }

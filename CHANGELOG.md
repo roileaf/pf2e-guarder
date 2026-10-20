@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Intercept Attack: "I'll move" is now **Choose square**: the player clicks one of the highlighted open squares next to
+  the ally within the Step (or taunted-enemy Stride) range instead of moving freely.
+- Live Foundry test suite (44 workflows, GM and player sessions) under `tests/live`.
+
 ## 0.1.0
 
 First release.

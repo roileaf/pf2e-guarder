@@ -19,7 +19,8 @@ every eligible guardian is asked whether to Intercept Attack:
 - Several eligible guardians are prompted at once; the first to accept intercepts.
 - The GM sees a waiting dialog with **force intercept** and **apply to ally** overrides.
 - On acceptance the guardian Steps to the nearest open square adjacent to the ally on square grids
-  (Strides, when the taunted-enemy extension applies), or the player can choose to move themselves.
+  (Strides, when the taunted-enemy extension applies), or **Choose square** lets the player click one of
+  the highlighted open squares next to the ally within that same Step/Stride range.
 - The guardian takes the triggering damage through PF2e's own `applyDamage`, so the **guardian's**
   immunities, weaknesses, resistances (including Guardian's Armor) and Shield Block apply, not the ally's.
 - By default the guardian takes only the triggering damage types and the ally keeps the rest of a mixed roll;
@@ -148,3 +149,12 @@ npm install
 npm test
 npm run lint
 ```
+
+### Live tests
+
+`npm run test:live:full` drives two real Foundry sessions (a QA GM and a QA player) with Playwright through every
+automated feature: 44 workflows that click the actual prompts, chat buttons, panel and tracker controls and check the
+resulting Foundry state. It builds its own scene, Guardian, ally and enemies tagged with the run ID and deletes them
+afterwards (`npm run test:live:cleanup` recovers an interrupted run). It only runs in the QA world (`test` by default,
+or `GUARDER_DISPOSABLE_WORLD`); `--saved` uses the accounts in `~/.config/pf2e-guarder/live.json`, falling back to
+`~/.config/pf2e-commanderer/live.json`. `GUARDER_LIVE_CASE=name,name` runs selected cases; `npm run test:live:list` lists them.

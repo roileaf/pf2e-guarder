@@ -47,11 +47,15 @@ export function adjacentPositions(ally, mover) {
  */
 export function chooseInterceptPosition({ guardian, ally, budget, gridDistance = 5, blocked = () => false }) {
   if (isAdjacent(guardian, ally, gridDistance)) return { ...guardian, cost: 0 };
-  const options = adjacentPositions(ally, guardian)
+  return interceptCandidates({ guardian, ally, budget, gridDistance, blocked })[0] ?? null;
+}
+
+/** Every open position adjacent to the ally the guardian can reach within `budget` feet, cheapest first. */
+export function interceptCandidates({ guardian, ally, budget, gridDistance = 5, blocked = () => false }) {
+  return adjacentPositions(ally, guardian)
     .map((candidate) => ({ ...candidate, cost: moveCost(candidate.col - guardian.col, candidate.row - guardian.row, gridDistance) }))
-    .filter((candidate) => candidate.cost <= budget && !blocked(candidate))
+    .filter((candidate) => candidate.cost > 0 && candidate.cost <= budget && !blocked(candidate))
     .sort((a, b) => a.cost - b.cost || a.row - b.row || a.col - b.col);
-  return options[0] ?? null;
 }
 
 /** Every footprint the creature could reach moving up to `budget` feet (excluding staying put). */

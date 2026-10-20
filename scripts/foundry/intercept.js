@@ -11,7 +11,7 @@ import {
 } from "./actors.js";
 import { attackFacts, getBehindMe, grantQuickVengeance } from "./followups.js";
 import { afterDamage } from "./guardian-reactions.js";
-import { moveAdjacent } from "./movement.js";
+import { moveAdjacent, pickAdjacent } from "./movement.js";
 import { combatantFor, reactionPool, reactionsLeft, spendReactions } from "./reactions.js";
 import { broadcast, registerListener, registerOperation, requestOperation } from "./socket.js";
 
@@ -76,7 +76,7 @@ function promptButtons(payload) {
   });
   const buttons = [{ value: "auto", label: moveLabel, icon: "fa-solid fa-shield-halved", style: "primary", default: true, result: accept(true) }];
   if (payload.movement !== "adjacent") {
-    buttons.push({ value: "manual", label: "I'll move", icon: "fa-solid fa-hand", result: accept(false) });
+    buttons.push({ value: "manual", label: "Choose square", icon: "fa-solid fa-hand-pointer", result: accept(false) });
   }
   buttons.push({ value: "decline", label: "Decline", icon: "fa-solid fa-xmark", result: { intercept: false } });
   return buttons;
@@ -256,15 +256,19 @@ async function resolveIntercept(payload) {
   const allyToken = await fromUuid(payload.allyTokenUuid);
   const notes = [];
 
-  if (payload.autoMove && allyToken && tokenDoc) {
+  if (allyToken && tokenDoc) {
     if (tokenDistance(tokenDoc, allyToken) > 5 && immobilized(guardian)) {
       notes.push("cannot move while immobilized");
     } else {
       const budget = interceptMovementBudget({ sourceTaunted: payload.sourceTaunted, speed: landSpeed(guardian) });
-      const movement = await moveAdjacent(tokenDoc, allyToken, { budget });
+      // "I'll move" (or auto-move turned off): the player picks the square, limited to the same budget.
+      const movement = payload.autoMove
+        ? await moveAdjacent(tokenDoc, allyToken, { budget })
+        : await pickAdjacent(tokenDoc, allyToken, { budget, label: payload.sourceTaunted && budget > 5 ? "Stride" : "Step" });
       if (movement.moved) notes.push(`${payload.sourceTaunted && movement.cost > 5 ? "Strides" : "Steps"} ${movement.cost} feet`);
       else if (movement.reason === "no-space") notes.push("no open square adjacent to the ally; move manually");
       else if (movement.reason === "unsupported-grid") notes.push("move manually (gridless or hex scene)");
+      else if (movement.reason === "stayed") notes.push("stays in place");
     }
   }
 
