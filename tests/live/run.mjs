@@ -185,7 +185,13 @@ try {
     else {
       report.environment = gm.state;
       const manifest = JSON.parse(await readFile('module.json', 'utf8'));
-      if (manifest.version !== gm.state.module) throw Error('Restart QA world to load current module version');
+      if (manifest.version !== gm.state.module) {
+        // Foundry caches module.json until the server restarts; scripts are still served fresh from disk.
+        // The override is only safe when the manifest's esmodules/styles didn't change.
+        if (process.env.GUARDER_ALLOW_VERSION_MISMATCH !== '1') throw Error('Restart QA world to load current module version');
+        report.environmentWarning = `Foundry reports module ${gm.state.module}, manifest is ${manifest.version} (GUARDER_ALLOW_VERSION_MISMATCH)`;
+        console.warn(report.environmentWarning);
+      }
       report.sourceFingerprint = await sourceFingerprint();
       const prerequisites = await rpc(gm.page, 'prerequisites');
       if (prerequisites.blocked) {

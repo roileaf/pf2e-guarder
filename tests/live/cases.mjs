@@ -720,6 +720,16 @@ const CASES = [
       await h.prompt(ctx.player, 'Covering Stance').first().waitFor({ state: 'visible' });
       await h.choose(ctx.player, 'Covering Stance', (await h.state()).ally.token);
       await h.until('Ally has lesser cover', x => x.ally.effects.includes('guarder-covering-stance-cover'));
+      // The cover must reach a real attack: through Visioner's auto-cover when it's on, else Guarder's +1 AC.
+      const visioner = await ctx.rpc(ctx.gm, 'visionerState');
+      if (visioner.minimum) {
+        await ctx.rpc(ctx.gm, 'realStrike', { attacker: 'enemy', target: 'ally' });
+        await h.until('Visioner applies at least lesser cover to the enemy\'s Strike', x => {
+          const strike = x.messages.findLast(m => m.type === 'attack-roll' && m.speaker === ctx.fixture.enemy);
+          return ['lesser', 'standard', 'greater'].includes(strike?.cover);
+        });
+        ctx.check('The cover effect carries Visioner\'s rule', visioner.coverRule === 'PF2eVisionerEffect');
+      } else ctx.check('Without Visioner\'s minimum cover, the effect carries Guarder\'s +1 AC', visioner.coverRule === 'FlatModifier');
       await ctx.rpc(ctx.gm, 'moveToken', { key: 'ally', col: 9, row: 9 });
       await h.until('Cover lost after moving away', x => !x.ally.effects.includes('guarder-covering-stance-cover'));
     } },

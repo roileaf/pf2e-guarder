@@ -105,7 +105,7 @@ your initiative). Unmet requirements ask before continuing.
 | Guarded Advance / Shielded Attrition / Blanket Defense | Raise a Shield, with a reminder effect where the feat lasts |
 | Defensive Advance / Juggernaut Charge / Retaliating Rescue / Scattering Charge | You move your token; the card has Strike, push-ally (+2) and Shove buttons for what is in reach then |
 | Aggressive Block / Repositioning Block | After a Shield Block against an adjacent attacker: shoved 5 ft or off-guard (the GM chooses for it) / a Reposition button |
-| Covering Stance | At the end of your turn, an adjacent ally gets lesser cover (+1 AC) until the start of your next turn or until it moves away |
+| Covering Stance | At the end of your turn, an adjacent ally gets lesser cover until the start of your next turn or until it moves away (through PF2E Visioner 8.14.7+ when its auto-cover is on, otherwise +1 AC) |
 
 Still resolved at the table: Improved Reflexive Shield, Great Shield Mastery, Phalanx Formation and Larger than Life
 (they depend on PF2e's area-save and cover math), and Momentum Strike's push into another creature.

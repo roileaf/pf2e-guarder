@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- PF2E Visioner integration: with Visioner 8.14.7+ and its auto-cover on, Covering Stance's lesser cover goes through
+  Visioner ("at least lesser cover" against every attacker), so it shows in Visioner's attack messages and never lowers
+  or stacks with other cover. Without it, Guarder keeps its +1 circumstance AC effect.
+
 ## 0.1.2
 
 - High-level Guardian feats:

@@ -491,6 +491,30 @@ export async function coverState(context) {
   });
 }
 
+/** A real Strike by a fixture creature (PF2e's roll pipeline, so other modules such as Visioner apply). */
+export async function realStrike(context) {
+  guard(context, true);
+  const { actor, token } = fixture(context);
+  const attacker = actor(context.attacker ?? 'enemy');
+  const strike = attacker.system.actions.find(a => a.type === 'strike' && a.ready !== false && (a.item?.isMelee ?? true));
+  for (const t of [...game.user.targets]) t.setTarget(false, { releaseOthers: false });
+  token(context.target ?? 'ally').object.setTarget(true, { releaseOthers: true });
+  await strike.roll({ event: new MouseEvent('click'), skipDialog: true });
+  await pause(500);
+}
+
+/** Whether Covering Stance's cover goes through Visioner here. */
+export async function visionerState(context) {
+  guard(context);
+  const { visionerCoverMinimum } = await import('../../scripts/foundry/visioner.js');
+  let autoCover;
+  try { autoCover = game.settings.get('pf2e-visioner', 'autoCover'); } catch { autoCover = null; }
+  const { actor } = fixture(context);
+  const cover = actor('ally').itemTypes.effect.find(e => e.slug === 'guarder-covering-stance-cover');
+  return { active: game.modules.get('pf2e-visioner')?.active === true, autoCover, minimum: visionerCoverMinimum(),
+    coverRule: cover?.system.rules?.[0]?.key ?? null };
+}
+
 export async function moveToken(context) {
   guard(context, true);
   const { token } = fixture(context);
@@ -574,6 +598,7 @@ export async function snapshot(context) {
       outcome: m.flags?.pf2e?.context?.outcome ?? null, retargeted: !!m.flags?.[SCOPE]?.retargeted, outcomeChanged: !!m.flags?.[SCOPE]?.outcomeChanged,
       target: m.flags?.pf2e?.context?.target?.actor ?? null, speaker: m.speaker?.actor ?? null, item: m.item?.slug ?? null,
       feat: m.flags?.[SCOPE]?.feat ?? null, degree: m.rolls?.[0]?.degreeOfSuccess ?? null,
+      cover: (m.flags?.pf2e?.context?.options ?? []).find(o => o.startsWith('target:cover-level:'))?.slice(19) ?? null,
       modifiers: (m.flags?.pf2e?.modifiers ?? []).map(x => x.slug), text: (m.content ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400),
       flavor: (m.flavor ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400) })),
     prompts: [...foundry.applications.instances.values()].filter(a => a.element?.classList.contains('pf2e-guarder-prompt-app')).map(a => a.title),

@@ -20,6 +20,7 @@ import { isResponsibleGM } from "./socket.js";
 import { setting } from "../settings.js";
 import { tauntTokens } from "./taunt.js";
 import { registerOperation, requestOperation } from "./socket.js";
+import { coverRules } from "./visioner.js";
 import { creatureDistance, footprintOf, overlaps } from "../domain/geometry.js";
 
 export const CONDITION_UUIDS = Object.freeze({
@@ -565,7 +566,8 @@ async function coverAlly(guardian, guardianToken) {
         description: { value: `<p>Lesser cover from ${escape(guardian.name)} until the start of their next turn. Lost if you move to a space not adjacent to them.</p>` },
         duration: { expiry: "turn-start", sustained: false, unit: "rounds", value: 1 },
         start: { value: game.time.worldTime, initiative: combatantFor(guardian)?.initiative ?? null },
-        rules: [{ key: "FlatModifier", selector: "ac", type: "circumstance", value: 1, label: "Covering Stance (lesser cover)" }],
+        // With PF2E Visioner the cover goes through Visioner, so its indicators and attack messages show it.
+        rules: coverRules("lesser", "covering-stance", "Covering Stance (lesser cover)"),
         tokenIcon: { show: true },
         traits: { rarity: "common", value: [] },
       },
