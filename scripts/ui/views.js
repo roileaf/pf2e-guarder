@@ -41,10 +41,12 @@ const MOVEMENT_LABEL = {
 /** Body of the guardian's Intercept Attack prompt. */
 export function interceptPromptBody(view) {
   const movement = MOVEMENT_LABEL[view.movement] ?? MOVEMENT_LABEL.step;
-  const shield = view.canShieldBlock
+  const option = view.shieldBlock ?? { show: Boolean(view.canShieldBlock), available: Boolean(view.canShieldBlock) };
+  const shield = !option.show ? "" : option.available
     ? `<label class="guarder-toggle"><input type="checkbox" name="shieldBlock">
         <span class="track"></span><span>${actionGlyph("R")} Also Shield Block <small>spends another reaction</small></span></label>`
-    : "";
+    : `<label class="guarder-toggle disabled" data-tooltip="${escapeHtml(option.reason)}"><input type="checkbox" name="shieldBlock" disabled>
+        <span class="track"></span><span>${actionGlyph("R")} Also Shield Block <small>${escapeHtml(option.reason)}</small></span></label>`;
   const behind = view.getBehindMe
     ? `<label class="guarder-toggle"><input type="checkbox" name="getBehindMe" checked>
         <span class="track"></span><span><i class="fa-solid fa-people-arrows"></i> Get Behind Me! <small>move ${escapeHtml(view.allyName)} up to 10 ft away from the attacker</small></span></label>`

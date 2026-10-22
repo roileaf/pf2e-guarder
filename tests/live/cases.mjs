@@ -181,6 +181,19 @@ const CASES = [
       await intercept(ctx, h, { before: () => h.prompt(ctx.player, 'Intercept Attack').locator('input[name="shieldBlock"]').check({ force: true }) });
       await h.until('Both reactions spent', s => poolLeft(s) === 0);
     } },
+  { name: 'intercept-shield-block-one-reaction', description: 'With one reaction left, Shield Block is disabled in the Intercept prompt and not applied.',
+    async run(ctx, h) {
+      const start = await h.arrange({ shieldRaised: true, pool: { general: 1, guardian: 0 } });
+      await ctx.rpc(ctx.gm, 'damage', { formula: '14[slashing]' });
+      const toggle = h.prompt(ctx.player, 'Intercept Attack').locator('input[name="shieldBlock"]');
+      await toggle.waitFor({ state: 'attached' });
+      ctx.check('Shield Block toggle is disabled', await toggle.isDisabled());
+      ctx.check('The prompt says a second reaction is needed', /second reaction/.test(await h.prompt(ctx.player, 'Intercept Attack').innerText()));
+      await intercept(ctx, h);
+      const s = await h.state();
+      ctx.check('Intercept used the one reaction', poolLeft(s) === 0 && s.guardian.hp < s.guardian.max);
+      ctx.check('No Shield Block: the shield took no damage', s.guardian.shield.hp === start.guardian.shield.hp);
+    } },
   // ------------------------------------------------------------ Intercept follow-ups
   { name: 'get-behind-me', description: 'Get Behind Me!: the player picks the ally\'s new square (Enter takes the suggestion).',
     async run(ctx, h) {

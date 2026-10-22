@@ -1,6 +1,6 @@
 import { MODULE_ID, SLUGS, SYSTEM_UUIDS } from "../constants.js";
 import { damageFormula, interceptableTypes, partitionInstances } from "../domain/damage.js";
-import { interceptEligibility, interceptMovementBudget } from "../domain/intercept.js";
+import { interceptEligibility, interceptMovementBudget, shieldBlockApplies, shieldBlockOption } from "../domain/intercept.js";
 import { frequencyAvailable, interceptFollowUps } from "../domain/followups.js";
 import { setting } from "../settings.js";
 import { dismissPrompts, openPrompt, timedPrompt } from "../ui/prompt.js";
@@ -190,7 +190,7 @@ async function runIntercept(ally, options, plan) {
       distance: candidate.distance,
       movement: movementFor(candidate),
       pool: reactionPool(candidate.guardian),
-      canShieldBlock: canShieldBlock(candidate.guardian),
+      shieldBlock: shieldBlockOption({ shieldReady: canShieldBlock(candidate.guardian), reactionsLeft: reactionsLeft(candidate.guardian) }),
       getBehindMe: hasSlug(candidate.guardian, "get-behind-me"),
       timeout,
     }),
@@ -277,6 +277,8 @@ async function resolveIntercept(payload) {
 
   const wanted = payload.shieldBlock ? 2 : 1;
   const spent = await spendReactions(guardian, wanted);
+  // Shield Block costs its own reaction; without it, only the interception happens.
+  const shieldBlock = shieldBlockApplies({ requested: payload.shieldBlock, spent, forced: payload.forced });
   if (spent < wanted) {
     if (payload.forced) notes.push("GM override beyond tracked reactions");
     else notes.push(spent === 0 ? "no reaction was left" : "no reaction left for Shield Block");
@@ -326,11 +328,11 @@ async function resolveIntercept(payload) {
     token: tokenDoc,
     item,
     rollOptions,
-    shieldBlockRequest: payload.shieldBlock,
+    shieldBlockRequest: shieldBlock,
     outcome: payload.outcome,
     [INTERCEPTED]: true,
   });
-  if (payload.shieldBlock && attackerToken) {
+  if (shieldBlock && attackerToken) {
     void afterShieldBlock(guardian, tokenDoc, attackerToken).catch((error) => notify("error", `Shield Block follow-up: ${error.message}`));
   }
   // The square picker waits on the player, so it runs after the damage is settled and the

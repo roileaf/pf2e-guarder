@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4
+
+- Fixed: Intercept Attack's "Also Shield Block" toggle was offered, and Shield Block applied, even with only one
+  reaction left. Shield Block alongside Intercept needs a second reaction (Ever Ready at initiative, Reaction Time each
+  turn): with one left the toggle is disabled and says why, and Shield Block only applies when its reaction is spent.
+  A GM force-intercept can still go beyond the tracked reactions.
+
 ## 0.1.3
 
 - PF2E Visioner integration: with Visioner 8.14.7+ and its auto-cover on, Covering Stance's lesser cover goes through

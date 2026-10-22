@@ -35,3 +35,18 @@ export function interceptEligibility({
   if (!(distance <= range)) return { eligible: false, reason: `is farther than ${range} feet` };
   return { eligible: true, reason: null };
 }
+
+/**
+ * Shield Block alongside Intercept Attack needs a second reaction (Ever Ready at initiative, Reaction Time
+ * each turn). `reactionsLeft` is Infinity when reactions aren't tracked.
+ */
+export function shieldBlockOption({ shieldReady, reactionsLeft }) {
+  if (!shieldReady) return { show: false, available: false, reason: null };
+  if (reactionsLeft >= 2) return { show: true, available: true, reason: null };
+  return { show: true, available: false, reason: "needs a second reaction (Ever Ready or Reaction Time)" };
+}
+
+/** Whether the Shield Block request goes through: its reaction was spent, or the GM forced the interception. */
+export function shieldBlockApplies({ requested, spent, forced = false }) {
+  return Boolean(requested && (spent >= 2 || forced));
+}

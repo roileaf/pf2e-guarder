@@ -78,3 +78,18 @@ test("fire damage needs Energy Interceptor", () => withGame(() => {
   const candidates = findInterceptors({ ally, allyToken: scene.tokens[0], damage: fire });
   assert.deepEqual(candidates.map((candidate) => candidate.guardian.id), ["energetic"]);
 }));
+
+test("Shield Block with Intercept Attack needs a second reaction", async () => {
+  const { shieldBlockOption, shieldBlockApplies } = await import("../scripts/domain/intercept.js");
+  assert.deepEqual(shieldBlockOption({ shieldReady: false, reactionsLeft: 2 }), { show: false, available: false, reason: null });
+  assert.equal(shieldBlockOption({ shieldReady: true, reactionsLeft: 2 }).available, true);
+  assert.equal(shieldBlockOption({ shieldReady: true, reactionsLeft: Infinity }).available, true);
+  const single = shieldBlockOption({ shieldReady: true, reactionsLeft: 1 });
+  assert.equal(single.show, true);
+  assert.equal(single.available, false);
+  assert.match(single.reason, /second reaction/);
+  assert.equal(shieldBlockApplies({ requested: true, spent: 1 }), false);
+  assert.equal(shieldBlockApplies({ requested: true, spent: 2 }), true);
+  assert.equal(shieldBlockApplies({ requested: true, spent: 1, forced: true }), true);
+  assert.equal(shieldBlockApplies({ requested: false, spent: 2 }), false);
+});

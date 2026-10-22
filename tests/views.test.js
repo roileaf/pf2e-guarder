@@ -23,6 +23,14 @@ test("the prompt shows damage, movement, and the Shield Block toggle", () => {
   assert.match(interceptPromptBody({ ...view, movement: "stride" }), /Stride allowed/);
 });
 
+test("with one reaction left the Shield Block toggle is disabled and says why", () => {
+  const html = interceptPromptBody({ ...view, shieldBlock: { show: true, available: false, reason: "needs a second reaction (Ever Ready or Reaction Time)" } });
+  assert.match(html, /name="shieldBlock" disabled/);
+  assert.match(html, /needs a second reaction/);
+  assert.doesNotMatch(interceptPromptBody({ ...view, shieldBlock: { show: true, available: true, reason: null } }), /disabled/);
+  assert.doesNotMatch(interceptPromptBody({ ...view, shieldBlock: { show: false, available: false, reason: null } }), /shieldBlock/);
+});
+
 test("reaction pips distinguish guardian-only reactions and untracked pools", () => {
   assert.equal((reactionPips({ general: 1, guardian: 2 }).match(/action-glyph guardian/g) ?? []).length, 2);
   assert.match(reactionPips({ general: 0, guardian: 0 }), /action-glyph spent/);
