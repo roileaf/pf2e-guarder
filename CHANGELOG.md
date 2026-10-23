@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.6
+
+- Sundry: removing Sundry's "Effect: Reaction Used" from a guardian, or counting its badge down, gives the reaction back
+  in Guarder too. Sundry's own clean-ups (the effect expiring at your turn start, combat ending) are left alone.
+- Restoring a reaction (tracker badge right-click, Sundry) gives back the kind you can actually hold right now: before
+  your first turn that's Ever Ready's guardian-only reaction, not a general one.
+- PF2e Combater: when its per-user "Show actions in the combat tracker" setting is on, Combater's tracker glyphs show
+  guardians' reactions and Guarder hides its own badge. The API adds `spendReaction(actor)` and `restoreReaction(actor)`
+  (what the badge's click and right-click do, Sundry included).
+- The tracker badge's click now spends Boundless Reprisals' reaction first, like every other spend.
+- The Guardian panel shows only the reaction slots that exist right now: before your first turn just Ever Ready's
+  guardian-only reaction, instead of a dimmed general slot next to it. The API adds `reactionLimit(actor)` for that.
+- API: `isGuardian(actor)`; `reactions`, `reactionLimit`, `spendReaction` and `restoreReaction` answer only for guardians
+  (null / false otherwise), so other modules keep tracking everyone else's reactions themselves.
+
 ## 0.1.5
 
 - Fixed: Ever Ready was tracked as an extra reaction at initiative (two reactions at combat start). It guarantees a

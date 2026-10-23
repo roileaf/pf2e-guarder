@@ -879,6 +879,29 @@ const CASES = [
       await ctx.gm.waitForTimeout(800);
       ctx.check('Restoring at full adds nothing', poolLeft(await h.state()) === 2);
     } },
+  { name: 'combater-tracker-glyphs', description: 'With PF2e Combater\'s tracker glyphs on, Guarder\'s badge steps aside and Combater spends/restores through Guarder.',
+    async run(ctx, h) {
+      const combater = await ctx.rpc(ctx.gm, 'combaterTrackerActions');
+      if (!combater.active) return { blocked: 'pf2e-combater is not active' };
+      if (combater.value === null) return { blocked: 'this PF2e Combater has no combatTrackerActions setting' };
+      await h.arrange({});
+      try {
+        await ctx.rpc(ctx.gm, 'combaterTrackerActions', { value: true });
+        await ctx.rpc(ctx.gm, 'showCombat');
+        const row = ctx.gm.locator(`#combat [data-combatant-id] .pf2e-combater-tracker-actions .combater-tracker-reactions`).first();
+        await row.waitFor({ state: 'visible' });
+        ctx.check('Guarder\'s badge is not drawn', await ctx.gm.locator('#combat .pf2e-guarder-reactions').count() === 0);
+        await ctx.screenshot('combater');
+        await row.click();
+        await h.until('Combater\'s click spends through Guarder', s => poolLeft(s) === 1);
+        await ctx.gm.locator(`#combat .pf2e-combater-tracker-actions .combater-tracker-reactions`).first().click({ button: 'right' });
+        await h.until('Combater\'s right-click restores through Guarder', s => poolLeft(s) === 2);
+      } finally {
+        await ctx.rpc(ctx.gm, 'combaterTrackerActions', { value: false });
+      }
+      await ctx.rpc(ctx.gm, 'showCombat');
+      await ctx.gm.locator('#combat .pf2e-guarder-reactions').first().waitFor({ state: 'visible' });
+    } },
   { name: 'reaction-turn-reset', description: 'The guardian\'s turn start refreshes its reaction.',
     async run(ctx, h) {
       await h.arrange({ pool: { general: 0, guardian: 0 } });
@@ -922,6 +945,18 @@ const CASES = [
       await ctx.eventually('Sundry counter added', async () => (await ctx.rpc(ctx.gm, 'sundryState')).used === 1);
       await h.panel(ctx.gm).locator('[data-action="toggleReaction"][data-spent="true"]').first().dispatchEvent('click');
       await ctx.eventually('Sundry counter removed', async () => (await ctx.rpc(ctx.gm, 'sundryState')).used === 0);
+      ctx.check('Restoring from the panel restores once, not twice', poolLeft(await h.state()) === 2);
+      // Removing Sundry's mark at the table gives the reaction back in Guarder.
+      await h.panel(ctx.gm).locator('[data-action="toggleReaction"][data-spent="false"]').first().dispatchEvent('click');
+      await ctx.eventually('Spent again', async () => (await ctx.rpc(ctx.gm, 'sundryState')).used === 1);
+      await ctx.rpc(ctx.gm, 'changeSundryEffect', { mode: 'delete' });
+      await h.until('Deleting Sundry\'s Reaction Used restores the Guarder reaction', s => poolLeft(s) === 2);
+      for (const spent of [1, 2]) {
+        await h.panel(ctx.gm).locator('[data-action="toggleReaction"][data-spent="false"]').first().dispatchEvent('click');
+        await ctx.eventually(`Sundry counter at ${spent}`, async () => (await ctx.rpc(ctx.gm, 'sundryState')).used === spent);
+      }
+      await ctx.rpc(ctx.gm, 'changeSundryEffect', { mode: 'decrement' });
+      await h.until('Counting Sundry\'s badge down restores one reaction', s => poolLeft(s) === 1);
     } },
 ];
 

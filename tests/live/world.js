@@ -629,6 +629,31 @@ export async function sundryState(context) {
     used: effect ? Number(effect.system?.badge?.value ?? 1) : 0 };
 }
 
+/** Remove Sundry's Reaction Used effect from the guardian (`delete`) or count its badge down by one. */
+export async function changeSundryEffect(context) {
+  guard(context, true);
+  const { actor } = fixture(context);
+  const effect = actor('guardian').itemTypes.effect.find(e => e.slug === 'effect-reaction-used');
+  if (!effect) throw Error('No Reaction Used effect');
+  if (context.mode === 'delete') await effect.delete();
+  else await effect.update({ 'system.badge.value': Number(effect.system.badge.value) - 1 });
+  await pause(600);
+}
+
+/** This client's PF2e Combater "Show actions in the combat tracker" setting (client scope). */
+export async function combaterTrackerActions(context) {
+  guard(context);
+  if (game.modules.get('pf2e-combater')?.active !== true) return { active: false, value: null };
+  let value;
+  try { value = game.settings.get('pf2e-combater', 'combatTrackerActions'); } catch { return { active: true, value: null }; }
+  if (typeof context.value === 'boolean') {
+    await game.settings.set('pf2e-combater', 'combatTrackerActions', context.value);
+    await pause(400);
+    value = context.value;
+  }
+  return { active: true, value };
+}
+
 export function toolbeltState(context) {
   guard(context);
   const active = game.modules.get('pf2e-toolbelt')?.active === true;

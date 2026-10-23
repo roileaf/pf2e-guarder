@@ -1,9 +1,12 @@
 import { FLAG_SCOPE, SLUGS } from "../constants.js";
-import { availableReactions, clampPool, consumeReaction, describePool, initiativePool, maxReactionPool, turnStartPool, withBoundless } from "../domain/reactions.js";
+import {
+  availableReactions, clampPool, consumeReaction, currentLimit, describePool, initiativePool, maxReactionPool, restoreReactions, turnStartPool,
+  withBoundless,
+} from "../domain/reactions.js";
 import { setting } from "../settings.js";
 import { hasSlug, isEnemy, isGuardian } from "./actors.js";
 import { isResponsibleGM, registerOperation, requestOperation } from "./socket.js";
-import { sundryReactionUsed } from "./sundry.js";
+import { sundryReactionRestored, sundryReactionUsed } from "./sundry.js";
 
 const FLAG_KEY = "reactions";
 
@@ -98,6 +101,56 @@ export function maxPool(actor) {
   const traits = guardianTraits(actor);
   const max = maxReactionPool(traits);
   return traits.boundless ? { ...max, boundless: 1 } : max;
+}
+
+/** Before the guardian's first turn of the combat (only Ever Ready's reaction exists then). */
+function beforeFirstTurn(combatant) {
+  const combat = combatant?.parent;
+  if (!combat?.started) return false;
+  if ((combat.round ?? 0) > 1) return false;
+  const index = combat.turns.findIndex((entry) => entry.id === combatant.id);
+  return index > (combat.turn ?? 0);
+}
+
+/**
+ * The reactions the guardian can hold right now (see currentLimit): before its first turn only Ever Ready's
+ * guardian-only one, after it the normal reaction plus Reaction Time's. Null when reactions aren't tracked.
+ */
+export function currentLimitFor(actor) {
+  const combatant = combatantFor(actor);
+  if (!reactionPool(actor) || !combatant) return null;
+  return currentLimit(guardianTraits(actor), { beforeFirstTurn: beforeFirstTurn(combatant), enemyTurn: enemyTurn(actor, combatant.parent) });
+}
+
+/**
+ * Give back `count` spent reactions (a reaction undone at the table), never past what the guardian can
+ * hold right now. Returns how many came back.
+ */
+export async function restoreReactionsFor(actor, count = 1) {
+  const combatant = combatantFor(actor);
+  const pool = reactionPool(actor);
+  if (!combatant || !pool || count <= 0) return 0;
+  const next = restoreReactions(pool, currentLimitFor(actor), count);
+  const restored = availableReactions(next) - availableReactions(pool);
+  if (restored > 0) await writePool(combatant, next);
+  return restored;
+}
+
+/**
+ * Spend one tracked reaction by hand (tracker badge click, PF2e Combater): Boundless Reprisals, then
+ * guardian-only, then general, and mark it in Sundry. Returns true when one was spent.
+ */
+export async function spendOneReaction(actor) {
+  const pool = reactionPool(actor);
+  if (!pool || !consumeReaction(pool)) return false;
+  return (await spendReactions(actor, 1)) === 1;
+}
+
+/** Give back one reaction by hand (tracker badge right-click, PF2e Combater) and remove one Sundry mark. */
+export async function restoreOneReaction(actor) {
+  const restored = await restoreReactionsFor(actor, 1);
+  if (restored) await sundryReactionRestored(actor).catch(() => null);
+  return restored > 0;
 }
 
 export async function setReactions(actor, pool) {

@@ -54,3 +54,13 @@ test("players see no GM reaction controls and no Raise a Shield on a raised shie
   assert.doesNotMatch(html, /toggleReaction/);
   assert.doesNotMatch(html, /raiseShield/);
 });
+
+test("before the first turn the panel shows only Ever Ready's reaction, no dimmed slot", () => {
+  const html = reactionSlots({ ...view, pool: { general: 0, guardian: 1 }, poolMax: { general: 0, guardian: 1 } });
+  assert.equal((html.match(/action-glyph/g) ?? []).length, 1);
+  // The glyph's class says whether it's spent (data-spent and the tooltip also contain the word).
+  assert.doesNotMatch(html, /class="[^"]*\bspent\b/);
+  const later = reactionSlots({ ...view, pool: { general: 0, guardian: 0 }, poolMax: { general: 1, guardian: 0 } });
+  assert.equal((later.match(/action-glyph/g) ?? []).length, 1);
+  assert.match(later, /class="[^"]*\bspent\b/);
+});

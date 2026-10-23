@@ -135,7 +135,9 @@ stance removes it.
 With **Sundry** active, reactions spent through Guarder also add Sundry's "Effect: Reaction Used" counter via
 `sundry.api.reactionUsed`, and restoring a reaction from the panel or tracker badge removes one. Reactions Sundry
 already counts on its own (reaction items posted to chat, and Strikes when its Reactive Strike tracking is on)
-are left to Sundry so nothing is counted twice.
+are left to Sundry so nothing is counted twice. Removing Sundry's Reaction Used effect from a guardian (or counting its
+badge down) gives the reaction back in Guarder too; Sundry's own expiry at your turn start and its end-of-combat clean-up
+don't.
 
 ### Guardian panel
 
@@ -190,6 +192,8 @@ In combat, each guardian's reactions are tracked on its combatant:
 ## API
 
 `game.modules.get("pf2e-guarder").api` exposes `reactions(actor)`, `setReactions(actor, { general, guardian })`,
+`isGuardian(actor)`, `reactionLimit(actor)` (the slots that exist right now), `spendReaction(actor)` /
+`restoreReaction(actor)` (one reaction by hand, with Sundry and the current limit; reaction calls answer only for guardians),
 `applyTaunt(message)`, and `applyTauntOffGuard(enemy, guardian)`.
 
 ## Development

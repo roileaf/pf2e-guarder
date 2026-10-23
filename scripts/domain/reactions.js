@@ -34,6 +34,29 @@ export function turnStartPool({ reactionTime = false } = {}) {
   return { general: 1, guardian: reactionTime ? 1 : 0 };
 }
 
+/**
+ * The most reactions the guardian can hold right now: its initiative pool before its first turn
+ * (Ever Ready's reaction), its turn-start pool after it; Boundless Reprisals' only during an enemy's turn.
+ */
+export function currentLimit(traits = {}, { beforeFirstTurn = false, enemyTurn = false } = {}) {
+  const limit = beforeFirstTurn ? initiativePool(traits) : turnStartPool(traits);
+  return traits.boundless ? { ...limit, boundless: enemyTurn ? 1 : 0 } : limit;
+}
+
+/**
+ * Give back `count` spent reactions, in the reverse of the order they are spent (general, then
+ * guardian-only, then Boundless Reprisals), never past `limit`.
+ */
+export function restoreReactions(pool, limit, count = 1) {
+  const next = { ...pool };
+  for (let index = 0; index < count; index++) {
+    const kind = ["general", "guardian", "boundless"].find((key) => limit[key] !== undefined && (next[key] ?? 0) < limit[key]);
+    if (!kind) break;
+    next[kind] = (next[kind] ?? 0) + 1;
+  }
+  return next;
+}
+
 /** Boundless Reprisals: the extra reaction is there for exactly the turns of the guardian's enemies. */
 export function withBoundless(pool, enemyTurn) {
   return { ...pool, boundless: enemyTurn ? 1 : 0 };

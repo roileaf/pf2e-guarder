@@ -1,9 +1,8 @@
 import { FLAG_SCOPE } from "../constants.js";
-import { clampPool, describePool } from "../domain/reactions.js";
+import { describePool } from "../domain/reactions.js";
 import { setting } from "../settings.js";
 import { isGuardian, notify } from "../foundry/actors.js";
-import { maxPool, reactionPool, setReactions } from "../foundry/reactions.js";
-import { sundryReactionRestored, sundryReactionUsed } from "../foundry/sundry.js";
+import { reactionPool, restoreOneReaction, spendOneReaction } from "../foundry/reactions.js";
 import { reactionPips } from "./views.js";
 
 // PF2e HUD (pf2e-hud) replaces the combat tracker with its own ApplicationV2 using the same row markup.
@@ -19,22 +18,11 @@ function badge(combatant) {
   element.innerHTML = reactionPips(pool);
   element.dataset.tooltip = `Reactions: ${describePool(pool)}${game.user.isGM ? "<br>Click: spend one · Right-click: restore one" : ""}`;
   if (!game.user.isGM) return element;
-  const change = (delta) => async (event) => {
+  // Restores stay within what the guardian can hold right now (before its first turn: Ever Ready's reaction only).
+  const change = (delta) => (event) => {
     event.preventDefault();
     event.stopPropagation();
-    const current = reactionPool(combatant.actor);
-    const max = maxPool(combatant.actor);
-    let next = { ...current };
-    if (delta < 0) {
-      if (next.guardian > 0) next.guardian--;
-      else if (next.general > 0) next.general--;
-    } else if (next.general < max.general) next.general++;
-    else next.guardian++;
-    next = clampPool(next, max);
-    const changed = next.general !== current.general || next.guardian !== current.guardian;
-    if (!changed) return;
-    await setReactions(combatant.actor, next).catch((error) => notify("error", error.message));
-    await (delta < 0 ? sundryReactionUsed(combatant.actor) : sundryReactionRestored(combatant.actor)).catch(() => null);
+    void (delta > 0 ? restoreOneReaction(combatant.actor) : spendOneReaction(combatant.actor)).catch((error) => notify("error", error.message));
   };
   // PF2e HUD rows act on click and right-click themselves; the badge keeps its own clicks.
   element.addEventListener("click", change(-1));
@@ -43,10 +31,28 @@ function badge(combatant) {
   return element;
 }
 
+/**
+ * PF2e Combater draws action and reaction glyphs in the trackers for this user (its per-user "Show actions
+ * in the combat tracker" setting), reading Guarder's pool; then Guarder's own badge would be a duplicate.
+ */
+export function combaterDrawsTrackerActions() {
+  if (game.modules?.get?.("pf2e-combater")?.active !== true) return false;
+  try {
+    return game.settings.get("pf2e-combater", "combatTrackerActions") === true;
+  } catch {
+    // Older Combater versions don't have the setting.
+    return false;
+  }
+}
+
 /** Add a reaction badge to each guardian row of a tracker; `slot(row)` is where it goes. */
 function decorate(html, combat, slot) {
   if (!setting("trackReactions") || !combat?.started) return;
   const root = html instanceof HTMLElement ? html : html?.[0];
+  if (combaterDrawsTrackerActions()) {
+    for (const element of root?.querySelectorAll?.(".pf2e-guarder-reactions") ?? []) element.remove();
+    return;
+  }
   for (const row of root?.querySelectorAll?.("[data-combatant-id]") ?? []) {
     const combatant = combat.combatants.get(row.dataset.combatantId);
     if (!combatant?.actor || !isGuardian(combatant.actor)) continue;

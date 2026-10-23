@@ -6,7 +6,7 @@ import { activeStance, setStance, STANCES } from "../foundry/hampering.js";
 import {
   hasCondition, hasSlug, isAlly, itemBySlug, notify, sameActor, sceneTokenFor, tauntEffects, tauntOrigin, tokenDistance,
 } from "../foundry/actors.js";
-import { maxPool, reactionPool, setReactions } from "../foundry/reactions.js";
+import { currentLimitFor, maxPool, reactionPool, setReactions } from "../foundry/reactions.js";
 import { sundryReactionRestored, sundryReactionUsed } from "../foundry/sundry.js";
 import { registerOperation, requestOperation } from "../foundry/socket.js";
 
@@ -96,8 +96,8 @@ function viewModel(actor) {
     armor: heavyEnough ? { name: armor.name, resistance } : null,
     shield,
     pool: reactionPool(actor),
-    // Most reactions the guardian can hold at once (1, plus Reaction Time's guardian-only one).
-    poolMax: maxPool(actor),
+    // Slots that exist right now: before the first turn only Ever Ready's, so no dimmed slot that can't be used.
+    poolMax: currentLimitFor(actor) ?? maxPool(actor),
     taunted,
     hasTaunt: Boolean(itemBySlug(actor, SLUGS.taunt, "action")),
     tauntLimits: tauntLimits({ groupTaunt: hasSlug(actor, SLUGS.groupTaunt), longDistance: hasSlug(actor, SLUGS.longDistanceTaunt) }),
