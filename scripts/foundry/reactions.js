@@ -1,5 +1,5 @@
 import { FLAG_SCOPE, SLUGS } from "../constants.js";
-import { availableReactions, clampPool, consumeReaction, describePool, initiativePool, turnStartPool, withBoundless } from "../domain/reactions.js";
+import { availableReactions, clampPool, consumeReaction, describePool, initiativePool, maxReactionPool, turnStartPool, withBoundless } from "../domain/reactions.js";
 import { setting } from "../settings.js";
 import { hasSlug, isEnemy, isGuardian } from "./actors.js";
 import { isResponsibleGM, registerOperation, requestOperation } from "./socket.js";
@@ -96,14 +96,14 @@ export async function spendReactions(actor, count = 1, { sundry = true } = {}) {
 /** The most reactions this guardian can hold at once. */
 export function maxPool(actor) {
   const traits = guardianTraits(actor);
-  const max = initiativePool(traits);
+  const max = maxReactionPool(traits);
   return traits.boundless ? { ...max, boundless: 1 } : max;
 }
 
 export async function setReactions(actor, pool) {
   const combatant = combatantFor(actor);
   if (!combatant) throw new Error(`${actor?.name ?? "Actor"} is not in the current combat.`);
-  // Restoring can never give more than 1 reaction plus Ever Ready / Reaction Time guardian-only ones.
+  // Restoring can never give more than the guardian can hold (1 reaction, plus Reaction Time's guardian-only one).
   await writePool(combatant, clampPool(pool, maxPool(actor)));
 }
 
@@ -133,7 +133,7 @@ export function registerReactionTracking() {
     return true;
   });
 
-  // A combatant without a stored pool uses its initiative pool (Ever Ready), so only turn starts need writes.
+  // A combatant without a stored pool uses its initiative pool (Ever Ready's reaction), so only turn starts need writes.
   Hooks.on("updateCombat", async (combat, changed, _options, userId) => {
     if (!isResponsibleGM(userId) || !setting("trackReactions")) return;
     if (!("turn" in changed) && !("round" in changed)) return;

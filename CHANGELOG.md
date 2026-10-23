@@ -1,10 +1,16 @@
 # Changelog
 
+## 0.1.5
+
+- Fixed: Ever Ready was tracked as an extra reaction at initiative (two reactions at combat start). It guarantees a
+  reaction when you roll initiative, usable only for guardian reactions; it isn't an extra one. A guardian now has one
+  guardian-only reaction at initiative, two with Reaction Time. Intercept Attack plus Shield Block on the same hit
+  needs Reaction Time.
+
 ## 0.1.4
 
 - Fixed: Intercept Attack's "Also Shield Block" toggle was offered, and Shield Block applied, even with only one
-  reaction left. Shield Block alongside Intercept needs a second reaction (Ever Ready at initiative, Reaction Time each
-  turn): with one left the toggle is disabled and says why, and Shield Block only applies when its reaction is spent.
+  reaction left. Shield Block alongside Intercept needs a second reaction (Reaction Time): with one left the toggle is disabled and says why, and Shield Block only applies when its reaction is spent.
   A GM force-intercept can still go beyond the tracked reactions.
 
 ## 0.1.3

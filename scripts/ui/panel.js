@@ -96,7 +96,7 @@ function viewModel(actor) {
     armor: heavyEnough ? { name: armor.name, resistance } : null,
     shield,
     pool: reactionPool(actor),
-    // Most reactions the guardian can hold at once (initiative: Ever Ready + Reaction Time).
+    // Most reactions the guardian can hold at once (1, plus Reaction Time's guardian-only one).
     poolMax: maxPool(actor),
     taunted,
     hasTaunt: Boolean(itemBySlug(actor, SLUGS.taunt, "action")),

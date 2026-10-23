@@ -24,7 +24,7 @@ test("the prompt shows damage, movement, and the Shield Block toggle", () => {
 });
 
 test("with one reaction left the Shield Block toggle is disabled and says why", () => {
-  const html = interceptPromptBody({ ...view, shieldBlock: { show: true, available: false, reason: "needs a second reaction (Ever Ready or Reaction Time)" } });
+  const html = interceptPromptBody({ ...view, shieldBlock: { show: true, available: false, reason: "needs a second reaction (Reaction Time)" } });
   assert.match(html, /name="shieldBlock" disabled/);
   assert.match(html, /needs a second reaction/);
   assert.doesNotMatch(interceptPromptBody({ ...view, shieldBlock: { show: true, available: true, reason: null } }), /disabled/);

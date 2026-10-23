@@ -35,7 +35,7 @@
       },
       "trackReactions": {
         "Name": "Track guardian reactions",
-        "Hint": "Track each guardian's reactions in combat, including Ever Ready and Reaction Time guardian-only reactions, and show them in the combat tracker."
+        "Hint": "Track each guardian's reactions in combat, including Ever Ready's reaction at initiative and Reaction Time's extra guardian-only reaction, and show them in the combat tracker."
       }
     }
   }

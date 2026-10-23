@@ -7,7 +7,7 @@ export const AUTOMATED = Object.freeze({
   "group-taunt": "Up to three taunted enemies, keep choice",
   "long-distance-taunt": "120-foot range check",
   "energy-interceptor": "Acid, cold, electricity, fire, sonic trigger Intercept",
-  "guardians-techniques": "Ever Ready reaction tracked at initiative",
+  "guardians-techniques": "Ever Ready: a guardian-only reaction when you roll initiative",
   "reaction-time": "Extra guardian reaction each turn",
   "shield-block": "Offered inside Intercept Attack",
   "get-behind-me": "Ally moved away from the attacker",

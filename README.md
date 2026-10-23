@@ -163,7 +163,8 @@ so the native −1 attack penalty, DC toggle, and Bodyguard −2 work unchanged.
 In combat, each guardian's reactions are tracked on its combatant:
 
 - One reaction at the start of each turn, plus a guardian-only reaction from **Reaction Time**.
-- **Ever Ready** guardian-only reaction(s) when combat starts.
+- **Ever Ready**: when you roll initiative you have a reaction, usable only for guardian reactions (it isn't an extra
+  one). With Reaction Time you have two guardian-only reactions at initiative.
 - Intercept Attack spends a guardian-only reaction first.
 - A badge in the combat tracker shows what is left; the GM clicks to spend one and right-clicks to restore one.
 

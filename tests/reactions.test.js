@@ -1,11 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { availableReactions, clampPool, consumeReaction, describePool, initiativePool, turnStartPool } from "../scripts/domain/reactions.js";
+import { availableReactions, clampPool, consumeReaction, describePool, initiativePool, maxReactionPool, turnStartPool } from "../scripts/domain/reactions.js";
 
-test("Ever Ready grants a guardian-only reaction on initiative", () => {
-  assert.deepEqual(initiativePool({ everReady: true }), { general: 1, guardian: 1 });
-  assert.deepEqual(initiativePool({ everReady: true, reactionTime: true }), { general: 1, guardian: 2 });
+test("Ever Ready means one guardian-only reaction at initiative, not an extra one", () => {
+  assert.deepEqual(initiativePool({ everReady: true }), { general: 0, guardian: 1 });
+  // Reaction Time adds its extra reaction at initiative too.
+  assert.deepEqual(initiativePool({ everReady: true, reactionTime: true }), { general: 0, guardian: 2 });
   assert.deepEqual(initiativePool(), { general: 1, guardian: 0 });
+});
+
+test("the most reactions a guardian can hold covers both initiative and turn starts", () => {
+  assert.deepEqual(maxReactionPool({ everReady: true }), { general: 1, guardian: 1 });
+  assert.deepEqual(maxReactionPool({ everReady: true, reactionTime: true }), { general: 1, guardian: 2 });
+  assert.deepEqual(maxReactionPool(), { general: 1, guardian: 0 });
 });
 
 test("Reaction Time grants a guardian-only reaction each turn", () => {

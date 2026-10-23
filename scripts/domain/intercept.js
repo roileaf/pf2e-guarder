@@ -37,13 +37,13 @@ export function interceptEligibility({
 }
 
 /**
- * Shield Block alongside Intercept Attack needs a second reaction (Ever Ready at initiative, Reaction Time
- * each turn). `reactionsLeft` is Infinity when reactions aren't tracked.
+ * Shield Block alongside Intercept Attack needs a second reaction, which only Reaction Time gives (one extra
+ * each turn, and at initiative with Ever Ready). `reactionsLeft` is Infinity when reactions aren't tracked.
  */
 export function shieldBlockOption({ shieldReady, reactionsLeft }) {
   if (!shieldReady) return { show: false, available: false, reason: null };
   if (reactionsLeft >= 2) return { show: true, available: true, reason: null };
-  return { show: true, available: false, reason: "needs a second reaction (Ever Ready or Reaction Time)" };
+  return { show: true, available: false, reason: "needs a second reaction (Reaction Time)" };
 }
 
 /** Whether the Shield Block request goes through: its reaction was spent, or the GM forced the interception. */
