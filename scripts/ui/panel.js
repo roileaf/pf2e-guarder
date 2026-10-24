@@ -4,7 +4,7 @@ import { BASE_INTERCEPT_RANGE } from "../domain/intercept.js";
 import { tauntLimits } from "../domain/taunt.js";
 import { activeStance, setStance, STANCES } from "../foundry/hampering.js";
 import {
-  hasCondition, hasSlug, isAlly, itemBySlug, notify, sameActor, sceneTokenFor, tauntEffects, tauntOrigin, tokenDistance,
+  hasCondition, hasSlug, isAlly, isGuardianCharacter, itemBySlug, notify, sameActor, sceneTokenFor, tauntEffects, tauntOrigin, tokenDistance,
 } from "../foundry/actors.js";
 import { currentLimitFor, maxPool, reactionPool, setReactions } from "../foundry/reactions.js";
 import { sundryReactionRestored, sundryReactionUsed } from "../foundry/sundry.js";
@@ -17,10 +17,7 @@ const REFRESH_DELAY = 80;
 const panels = new Map();
 
 export function hasGuardianFeatures(actor) {
-  if (!actor || actor.type !== "character") return false;
-  return actor.class?.slug === "guardian"
-    || hasSlug(actor, SLUGS.interceptAttack)
-    || hasSlug(actor, "guardian-dedication");
+  return isGuardianCharacter(actor);
 }
 
 const INTERCEPT_FEATURES = [

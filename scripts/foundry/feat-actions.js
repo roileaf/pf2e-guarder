@@ -9,7 +9,7 @@ import { timedPrompt } from "../ui/prompt.js";
 import { reactionCard } from "../ui/views.js";
 import { pickSquare } from "../canvas/square-picker.js";
 import {
-  footprint, gridDistance, hasCondition, hasSlug, isEnemy, isTauntedBy, itemBySlug, notify, sceneTokenFor, tokenDistance,
+  footprint, gridDistance, hasCondition, hasSlug, isEnemy, isGuardianCharacter, isTauntedBy, itemBySlug, notify, sceneTokenFor, tokenDistance,
   tokenDocument, wallBlocksMove,
 } from "./actors.js";
 import { combatantFor, reactionPool } from "./reactions.js";
@@ -442,8 +442,8 @@ async function momentumMove(guardian, guardianToken, targetToken, budget) {
 export async function runFeatAction(message) {
   const item = message.item;
   const handler = FEATS[item?.slug];
-  if (!handler) return false;
   const actor = message.actor;
+  if (!handler || !isGuardianCharacter(actor)) return false;
   const token = tokenDocument(message.token) ?? sceneTokenFor(actor);
   await handler({ actor, item, token, message, targets: [...(game.user.targets ?? [])].map((target) => target.document) });
   return true;
@@ -528,6 +528,7 @@ async function aggressiveBlock(guardian, guardianToken, attackerToken) {
  * Aggressive Block and Repositioning Block, when the attacker is adjacent.
  */
 export async function afterShieldBlock(guardian, guardianToken, attackerToken) {
+  if (!isGuardianCharacter(guardian)) return;
   guardianToken = tokenDocument(guardianToken) ?? sceneTokenFor(guardian);
   attackerToken = tokenDocument(attackerToken);
   if (!guardianToken || !attackerToken?.actor || tokenDistance(guardianToken, attackerToken) > 5) return;

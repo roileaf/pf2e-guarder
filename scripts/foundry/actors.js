@@ -23,6 +23,15 @@ export function isGuardian(actor) {
   return hasSlug(actor, SLUGS.interceptAttack);
 }
 
+/**
+ * A guardian character: the Guardian class, Intercept Attack, or the Guardian Dedication. Guarder offers
+ * reactions and runs feats only for them; a fighter's Reactive Strike or Shield Block stays at the table.
+ */
+export function isGuardianCharacter(actor) {
+  if (!actor || actor.type !== "character") return false;
+  return actor.class?.slug === "guardian" || isGuardian(actor) || hasSlug(actor, "guardian-dedication");
+}
+
 /** The real actor behind a PF2e contextual clone or a token actor. */
 export function sourceActor(actor) {
   if (!actor) return null;

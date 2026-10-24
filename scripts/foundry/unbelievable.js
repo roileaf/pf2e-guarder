@@ -5,7 +5,7 @@ import { setting } from "../settings.js";
 import { dismissPrompts, timedPrompt } from "../ui/prompt.js";
 import { unbelievableCard, unbelievablePromptBody } from "../ui/views.js";
 import {
-  alive, controllingUser, footprint, gridDistance, hasSlug, incapacitated, isAlly, landSpeed, notify, sceneTokenFor, tokenDistance,
+  alive, controllingUser, footprint, gridDistance, hasSlug, incapacitated, isAlly, isGuardianCharacter, landSpeed, notify, sceneTokenFor, tokenDistance,
   wallBlocksMove,
 } from "./actors.js";
 import { actorReach } from "./followups.js";
@@ -37,7 +37,7 @@ function candidatesFor({ ally, allyToken, attacker, attackerToken, item }) {
   const candidates = [];
   for (const token of scene.tokens) {
     const guardian = token.actor;
-    if (!guardian || seen.has(guardian.uuid) || !hasSlug(guardian, SLUG)) continue;
+    if (!guardian || seen.has(guardian.uuid) || !isGuardianCharacter(guardian) || !hasSlug(guardian, SLUG)) continue;
     seen.add(guardian.uuid);
     if (guardian.uuid === ally.uuid || !isAlly(guardian, ally) || !alive(guardian) || incapacitated(guardian)) continue;
     if (mythicPoints(guardian) <= 0 || reactionsLeft(guardian) <= 0) continue;

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7
+
+- Fixed: non-guardian characters got Guarder's reaction prompts. A fighter (or anyone) with Reactive Strike, Reactive
+  Shield or Shield Block was prompted, and PF2e's Shield Block button spent reactions Guarder doesn't show for them.
+  Reactions, feat actions, stances and Shield Block follow-ups now run only for guardians: the Guardian class, Intercept
+  Attack or the Guardian Dedication.
+
 ## 0.1.6
 
 - Sundry: removing Sundry's "Effect: Reaction Used" from a guardian, or counting its badge down, gives the reaction back

@@ -307,6 +307,20 @@ const CASES = [
       await h.until('Reactive Strike card and Strike posted', s => hasCard(s, 'reaction', 'ranged attack') && s.messages.some(m => m.type === 'attack-roll' && m.speaker === ctx.fixture.guardian));
       ctx.check('Reaction spent', poolLeft(await h.state()) === 1);
     } },
+  { name: 'non-guardian-reactions', description: 'A non-guardian with Reactive Strike gets no Guarder prompt; the guardian still does.',
+    async run(ctx, h) {
+      // The ally (a non-guardian) has Reactive Strike and is next to the enemy; the guardian is far away.
+      await h.arrange({ allyFeats: ['reactive-strike'], positions: { guardian: [2, 9], ally: [6, 6], enemy: [7, 6] } });
+      await ctx.rpc(ctx.gm, 'attack', { target: 'guardian', weapon: 'shortbow', total: 5, dc: 18, outcome: 'failure' });
+      await h.noPrompt(ctx.player, 'Reaction', 3000);
+      await h.noPrompt(ctx.gm, 'Reaction', 100);
+      // Same setup, but the guardian is the one in reach: it is prompted.
+      await h.arrange({ allyFeats: ['reactive-strike'], feats: ['reactive-strike'], positions: { guardian: [6, 7], ally: [6, 5], enemy: [7, 6] } });
+      await ctx.rpc(ctx.gm, 'attack', { target: 'ally', weapon: 'shortbow', total: 5, dc: 18, outcome: 'failure' });
+      await h.prompt(ctx.player, 'Reaction').first().waitFor({ state: 'visible' });
+      ctx.check('Only one Reaction prompt (the guardian\'s)', await h.prompt(ctx.player, 'Reaction').count() === 1);
+      await h.choose(ctx.player, 'Reaction', 'decline');
+    } },
   { name: 'reactive-strike-manipulate', description: 'Reactive Strike when an adjacent enemy uses a manipulate action.',
     async run(ctx, h) {
       await h.arrange({ feats: ['reactive-strike'], positions: { guardian: [4, 6], ally: [9, 6], enemy: [5, 6] } });

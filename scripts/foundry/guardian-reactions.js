@@ -9,7 +9,7 @@ import { setting } from "../settings.js";
 import { dismissPrompts, timedPrompt } from "../ui/prompt.js";
 import { reactionCard, reactionPromptBody } from "../ui/views.js";
 import {
-  alive, controllingUser, gridDistance, hasCondition, hasSlug, incapacitated, isAlly, isEnemy, itemBySlug, landSpeed,
+  alive, controllingUser, gridDistance, hasCondition, hasSlug, incapacitated, isAlly, isEnemy, isGuardianCharacter, itemBySlug, landSpeed,
   notify, sceneTokenFor, tokenDistance,
 } from "./actors.js";
 import { actorReach, grantQuickVengeance, strikeBack } from "./followups.js";
@@ -38,7 +38,7 @@ function guardiansOn(scene, slugs) {
   const found = [];
   for (const token of scene?.tokens ?? []) {
     const actor = token.actor;
-    if (!actor || seen.has(actor.uuid) || actor.type !== "character") continue;
+    if (!actor || seen.has(actor.uuid) || !isGuardianCharacter(actor)) continue;
     seen.add(actor.uuid);
     if (slugs.some((slug) => hasSlug(actor, slug)) && eligible(actor)) found.push({ guardian: actor, token });
   }
@@ -422,7 +422,7 @@ async function onTokenMove(document, movement, _operation, user) {
 /** Called by the damage wrapper after damage lands: Keep Up the Good Fight and native Shield Block. */
 export async function afterDamage(actor, options, hpBefore, conditionsBefore = []) {
   const guardian = actor?.isToken ? actor : game.actors?.get(actor?.id) ?? actor;
-  if (!guardian || guardian.type !== "character") return;
+  if (!isGuardianCharacter(guardian)) return;
   const hpAfter = guardian.hitPoints?.value ?? guardian.system?.attributes?.hp?.value;
   const attacker = options.item?.actor ?? null;
   // PF2e's own Shield Block (damage card button) spends a reaction and triggers Quick Vengeance.
@@ -527,7 +527,7 @@ async function onStanceOrReactionPosted(message) {
   if (message.author?.id !== game.user.id || message.flags?.[MODULE_ID]) return;
   const item = message.item;
   const actor = message.actor;
-  if (!item || !actor || actor.type !== "character" || message.flags?.pf2e?.context?.type) return;
+  if (!item || !isGuardianCharacter(actor) || message.flags?.pf2e?.context?.type) return;
   if (STANCES[item.slug]) {
     if (activeStance(actor) !== item.slug) await setStance(actor, item.slug, true);
     return;

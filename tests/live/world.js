@@ -249,6 +249,12 @@ export async function arrange(context) {
   if (spec.extraStance) await guardian.createEmbeddedDocuments('Item', [{ name: 'QA Stance', type: 'feat',
     system: { slug: 'qa-stance', actionType: { value: 'action' }, actions: { value: 1 }, category: 'class', level: { value: 1 },
       traits: { value: ['stance'], rarity: 'common' }, description: { value: '<p>Live-test stance without module automation.</p>' } } }]);
+  // A non-guardian ally with reactions Guarder must leave alone (fighter-style Reactive Strike).
+  const allyActor = actor('ally');
+  const allyExtras = allyActor.items.filter(i => REACTION_SLUGS.includes(i.slug)).map(i => i.id);
+  if (allyExtras.length) await allyActor.deleteEmbeddedDocuments('Item', allyExtras);
+  const allyAdd = [];
+  for (const slug of spec.allyFeats ?? []) for (const entry of OPTIONAL[slug] ?? []) allyAdd.push(itemSource(await source(entry)));
   // 2. Effects and conditions off, HP full, flags clear.
   for (const key of keys) {
     const document = actor(key);
@@ -279,6 +285,7 @@ export async function arrange(context) {
   const add = [];
   for (const slug of wanted) if (!have.has(slug)) for (const entry of OPTIONAL[slug]) add.push(itemSource(await source(entry)));
   if (add.length) await guardian.createEmbeddedDocuments('Item', add);
+  if (allyAdd.length) await allyActor.createEmbeddedDocuments('Item', allyAdd);
   const intercept = guardian.items.find(i => i.slug === 'intercept-attack' && i.type === 'action');
   await intercept.update({ 'system.frequency': spec.interceptFrequency ?? null });
   const keepUp = guardian.items.find(i => i.slug === 'keep-up-the-good-fight' && i.system.frequency?.max);

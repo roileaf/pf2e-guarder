@@ -5,7 +5,7 @@ import { toughCookieAmount, toughCookieAllowed } from "../domain/feats.js";
 import { setting } from "../settings.js";
 import { timedPrompt } from "../ui/prompt.js";
 import { reactionCard } from "../ui/views.js";
-import { controllingUser, hasSlug, notify } from "./actors.js";
+import { controllingUser, hasSlug, isGuardianCharacter, notify } from "./actors.js";
 import { activeStance, setStance, STANCES } from "./hampering.js";
 import { reactionPool } from "./reactions.js";
 import { isResponsibleGM, requestOperation } from "./socket.js";
@@ -97,7 +97,7 @@ function salvage(item, changes) {
   const value = foundry.utils.getProperty(changes, "system.hp.value");
   if (value === undefined || Number(value) > 0) return;
   const actor = item.parent;
-  if (!actor || !blocking.has(actor.uuid) || !hasSlug(actor, "shield-salvation")) return;
+  if (!isGuardianCharacter(actor) || !blocking.has(actor.uuid) || !hasSlug(actor, "shield-salvation")) return;
   if (item.flags?.[MODULE_ID]?.shieldSalvation === today()) return;
   foundry.utils.setProperty(changes, "system.hp.value", 1);
   foundry.utils.setProperty(changes, `flags.${MODULE_ID}.shieldSalvation`, today());
@@ -156,7 +156,8 @@ export function registerHighLevelFeats() {
   Hooks.on("updateCombatant", (combatant, changed, _options, userId) => {
     if (!("initiative" in changed) || changed.initiative === null || !isResponsibleGM(userId)) return;
     const actor = combatant.actor;
-    if (!actor || !hasSlug(actor, "opening-stance")) return;
+    // Opening Stance is also a fighter feat: only guardians get Guarder's prompt.
+    if (!isGuardianCharacter(actor) || !hasSlug(actor, "opening-stance")) return;
     if (combatant.flags?.[MODULE_ID]?.openingStance === (combatant.parent?.id ?? true)) return;
     void offerOpeningStance(combatant).catch((error) => notify("error", `Opening Stance: ${error.message}`));
   });
