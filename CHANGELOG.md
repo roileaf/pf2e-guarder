@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.0
+
+First stable release: everything from the 0.1.x pre-releases, unchanged since 0.1.7.
+
+- **Intercept Attack**: prompts the guardian's player (GM fallback, live GM override board), Steps or Strides into place
+  toward the attacker (or lets the player choose the square), never through walls, and redirects the damage through the
+  guardian's own resistances and Shield Block (with a second reaction).
+- **Intercept follow-ups**: Get Behind Me!, Disarming Intercept, Armored Counterattack, Quick Vengeance, Guardian's
+  Intercept and Unbelievable Interception.
+- **Guardian reactions**: Shield from Arrows / Spells, Reactive Shield, Clang!, Reactive Strike, Not So Fast!, Keep Up the
+  Good Fight, Tough to Kill, Boundless Reprisals.
+- **Feat actions**: 27 Guardian feats run from the sheet with PF2e's own Strikes and saves, plus Shield Salvation, Tough
+  Cookie, Armored Courage and Opening Stance.
+- **Stances**: Hampering Stance (enemy-only terrain that follows you), Paragon's Guard, Covering Stance.
+- **Taunt** with range, Group Taunt, Long-Distance Taunt and off-guard automation.
+- **Reaction tracking** (Ever Ready, Reaction Time) in the Guardian panel, the combat tracker and PF2e HUD.
+- **Integrations**: pf2e-toolbelt, Sundry, PF2E Visioner (cover), PF2e HUD, PF2e Combater.
+
 ## 0.1.7
 
 - Fixed: non-guardian characters got Guarder's reaction prompts. A fighter (or anyone) with Reactive Strike, Reactive
