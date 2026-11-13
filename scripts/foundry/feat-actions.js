@@ -19,6 +19,7 @@ import { controllingUser } from "./actors.js";
 import { isResponsibleGM } from "./socket.js";
 import { setting } from "../settings.js";
 import { tauntTokens } from "./taunt.js";
+import { tauntLimits } from "../domain/taunt.js";
 import { registerOperation, requestOperation } from "./socket.js";
 import { coverRules } from "./visioner.js";
 import { creatureDistance, footprintOf, overlaps } from "../domain/geometry.js";
@@ -152,6 +153,19 @@ function singleTarget(ctx, featName) {
   return targets[0];
 }
 
+/** The enemies the player targeted for a Taunt (Group Taunt allows up to three), or null with a warning. */
+function tauntTargets(ctx, featName) {
+  const targets = ctx.targets.filter((token) => token.actor && isEnemy(ctx.actor, token.actor));
+  const max = tauntLimits({ groupTaunt: hasSlug(ctx.actor, SLUGS.groupTaunt) }).maxTargets;
+  if (!targets.length || targets.length > max) {
+    notify("warn", max === 1
+      ? `${featName}: target exactly one enemy, then use it again.`
+      : `${featName}: target one to ${max} enemies, then use it again.`);
+    return null;
+  }
+  return targets;
+}
+
 async function raiseShield(actor) {
   if (!actor.attributes?.shield?.itemId) return "no shield to raise";
   if (actor.attributes.shield.raised) return "shield already raised";
@@ -192,11 +206,12 @@ const FEATS = {
   },
 
   async "shielding-taunt"(ctx) {
-    const target = singleTarget(ctx, ctx.item.name);
-    if (!target) return;
+    const targets = tauntTargets(ctx, ctx.item.name);
+    if (!targets) return;
     const shield = await raiseShield(ctx.actor);
-    await tauntTokens({ guardian: ctx.actor, guardianToken: ctx.token, item: itemBySlug(ctx.actor, SLUGS.taunt, "action"), targets: [target] });
-    await postCard(ctx.actor, ctx.item, { headline: `${ctx.actor.name} bangs on the shield`, notes: [shield, `${target.name} is taunted.`] });
+    const taunted = await tauntTokens({ guardian: ctx.actor, guardianToken: ctx.token, item: itemBySlug(ctx.actor, SLUGS.taunt, "action"), targets });
+    const names = targets.map((token) => token.name).join(", ");
+    await postCard(ctx.actor, ctx.item, { headline: `${ctx.actor.name} bangs on the shield`, notes: [shield, taunted ? `${names} ${targets.length > 1 ? "are" : "is"} taunted.` : "Taunt not applied."] });
   },
 
   async "shoulder-check"(ctx) {

@@ -627,6 +627,9 @@ const CASES = [
       await h.arrange({ feats: ['shielding-taunt'], positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
       s = await useFeat(ctx, h, 'shielding-taunt');
       ctx.check('Shielding Taunt raised the shield and taunted', s.guardian.shield.raised && s.enemy.tauntedBy.includes(s.guardian.uuid));
+      await h.arrange({ feats: ['shielding-taunt', 'group-taunt'], positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6], enemy2: [6, 7] } });
+      await useFeat(ctx, h, 'shielding-taunt', ['enemy', 'enemy2']);
+      await h.until('Shielding Taunt with Group Taunt taunts both', x => x.enemy.tauntedBy.includes(x.guardian.uuid) && x.enemy2.tauntedBy.includes(x.guardian.uuid));
     } },
   { name: 'feat-shield-wallop', description: 'Shield Wallop stupefies on a hit; Devastating Shield Wallop applies its save result.',
     async run(ctx, h) {
