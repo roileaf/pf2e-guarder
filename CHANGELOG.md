@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- **Shielding Taunt** honors Group Taunt: with Group Taunt, target up to three enemies instead of exactly one. The chat
+  card lists every taunted enemy.
+
 ## 1.0.0
 
 First stable release: everything from the 0.1.x pre-releases, unchanged since 0.1.7.
