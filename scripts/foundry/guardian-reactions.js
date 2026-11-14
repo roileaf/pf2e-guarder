@@ -9,7 +9,7 @@ import { setting } from "../settings.js";
 import { dismissPrompts, timedPrompt } from "../ui/prompt.js";
 import { reactionCard, reactionPromptBody } from "../ui/views.js";
 import {
-  alive, controllingUser, gridDistance, hasCondition, hasSlug, incapacitated, isAlly, isEnemy, isGuardianCharacter, itemBySlug, landSpeed,
+  alive, controllingUser, gridDistance, guardianEffectContext, hasCondition, hasSlug, incapacitated, isAlly, isEnemy, isGuardianCharacter, itemBySlug, landSpeed,
   notify, sceneTokenFor, tokenDistance,
 } from "./actors.js";
 import { actorReach, grantQuickVengeance, strikeBack } from "./followups.js";
@@ -125,6 +125,7 @@ async function grantOffGuardUntilMyNextTurnEnd(enemy, guardian) {
       // Counted from the guardian's initiative: lasts until the end of the guardian's next turn.
       duration: { expiry: "turn-end", sustained: false, unit: "rounds", value: 1 },
       start: { value: game.time.worldTime, initiative: combatantFor(guardian)?.initiative ?? null },
+      context: guardianEffectContext(guardian, enemy),
       rules: [{ key: "GrantItem", inMemoryOnly: true, uuid: OFF_GUARD }],
       tokenIcon: { show: true },
       traits: { rarity: "common", value: [] },

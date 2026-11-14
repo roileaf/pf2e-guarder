@@ -567,6 +567,13 @@ export async function advanceTurnTo(context) {
   await combat.update({ turn: combat.turns.findIndex(c => c.tokenId === token(context.key).id) });
 }
 
+/** Advance the encounter one turn the way the tracker does (worldTime moves on a new round). */
+export async function nextTurn(context) {
+  guard(context, true);
+  const { combat } = fixture(context);
+  await combat.nextTurn();
+}
+
 export async function setFlag(context) {
   guard(context, true);
   const { actor } = fixture(context);

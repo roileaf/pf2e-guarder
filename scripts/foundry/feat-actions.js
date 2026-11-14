@@ -9,7 +9,7 @@ import { timedPrompt } from "../ui/prompt.js";
 import { reactionCard } from "../ui/views.js";
 import { pickSquare } from "../canvas/square-picker.js";
 import {
-  footprint, gridDistance, hasCondition, hasSlug, isEnemy, isGuardianCharacter, isTauntedBy, itemBySlug, notify, sceneTokenFor, tokenDistance,
+  footprint, gridDistance, guardianEffectContext, hasCondition, hasSlug, isDead, isEnemy, isGuardianCharacter, isTauntedBy, itemBySlug, notify, sceneTokenFor, tokenDistance,
   tokenDocument, wallBlocksMove,
 } from "./actors.js";
 import { combatantFor, reactionPool } from "./reactions.js";
@@ -42,7 +42,7 @@ const DURATIONS = {
 const UNTIL_TEXT = {
   "next-turn-start": "until the start of {g}'s next turn",
   "next-turn-end": "until the end of {g}'s next turn",
-  "turn-end": "until the end of this turn",
+  "turn-end": "until the end of {g}'s turn",
 };
 
 // ---------------------------------------------------------------- primitives
@@ -100,6 +100,7 @@ async function applyPlan(actor, guardian, featName, plan) {
         duration: { ...duration, sustained: false, unit: "rounds" },
         // Counted from the guardian's initiative: "your next turn" is the guardian's.
         start: { value: game.time.worldTime, initiative: combatantFor(guardian)?.initiative ?? null },
+        context: guardianEffectContext(guardian, actor, guardian.items.find((item) => item.name === featName)),
         rules,
         tokenIcon: { show: true },
         traits: { rarity: "common", value: [] },
@@ -145,7 +146,7 @@ async function postCard(guardian, item, { headline, notes = [], buttons = "" }) 
 
 /** The single enemy the player targeted, or null with a warning. */
 function singleTarget(ctx, featName) {
-  const targets = ctx.targets.filter((token) => token.actor && isEnemy(ctx.actor, token.actor));
+  const targets = ctx.targets.filter((token) => token.actor && !isDead(token.actor) && isEnemy(ctx.actor, token.actor));
   if (targets.length !== 1) {
     notify("warn", `${featName}: target exactly one enemy, then use it again.`);
     return null;
@@ -155,7 +156,7 @@ function singleTarget(ctx, featName) {
 
 /** The enemies the player targeted for a Taunt (Group Taunt allows up to three), or null with a warning. */
 function tauntTargets(ctx, featName) {
-  const targets = ctx.targets.filter((token) => token.actor && isEnemy(ctx.actor, token.actor));
+  const targets = ctx.targets.filter((token) => token.actor && !isDead(token.actor) && isEnemy(ctx.actor, token.actor));
   const max = tauntLimits({ groupTaunt: hasSlug(ctx.actor, SLUGS.groupTaunt) }).maxTargets;
   if (!targets.length || targets.length > max) {
     notify("warn", max === 1
@@ -329,7 +330,7 @@ const FEATS = {
   async "stomp-ground"(ctx) {
     const scene = ctx.token?.parent;
     if (!scene) return notify("warn", `${ctx.item.name}: ${ctx.actor.name} must be on the scene.`);
-    const creatures = [...scene.tokens].filter((token) => token.actor && token.id !== ctx.token.id && !token.hidden && tokenDistance(ctx.token, token) <= 5);
+    const creatures = [...scene.tokens].filter((token) => token.actor && token.id !== ctx.token.id && !token.hidden && !isDead(token.actor) && tokenDistance(ctx.token, token) <= 5);
     const notes = [];
     for (const token of creatures) {
       const save = await rollSave(token.actor, ctx.actor, { save: "reflex", item: ctx.item, options: ["area-effect", "damaging-effect"] });
@@ -563,7 +564,7 @@ const COVER_SLUG = "guarder-covering-stance-cover";
 
 /** At the end of the guardian's turn in Covering Stance, its player picks an adjacent ally to cover. */
 async function coverAlly(guardian, guardianToken) {
-  const allies = [...guardianToken.parent.tokens].filter((token) => token.actor && token.id !== guardianToken.id && !token.hidden
+  const allies = [...guardianToken.parent.tokens].filter((token) => token.actor && token.id !== guardianToken.id && !token.hidden && !isDead(token.actor)
     && !isEnemy(guardian, token.actor) && token.actor.uuid !== guardian.uuid && tokenDistance(guardianToken, token) <= 5);
   if (!allies.length) return;
   const choice = await askUser(controllingUser(guardian, setting("interceptPromptTarget")), guardian, {
@@ -582,6 +583,7 @@ async function coverAlly(guardian, guardianToken) {
         description: { value: `<p>Lesser cover from ${escape(guardian.name)} until the start of their next turn. Lost if you move to a space not adjacent to them.</p>` },
         duration: { expiry: "turn-start", sustained: false, unit: "rounds", value: 1 },
         start: { value: game.time.worldTime, initiative: combatantFor(guardian)?.initiative ?? null },
+        context: guardianEffectContext(guardian, ally.actor, itemBySlug(guardian, "covering-stance")),
         // With PF2E Visioner the cover goes through Visioner, so its indicators and attack messages show it.
         rules: coverRules("lesser", "covering-stance", "Covering Stance (lesser cover)"),
         tokenIcon: { show: true },
@@ -645,7 +647,7 @@ export async function runFeatFollowUp(kind, button, guardian) {
     return true;
   }
   if (kind === "push-ally") {
-    const allies = [...guardianToken.parent.tokens].filter((token) => token.actor && token.id !== guardianToken.id && !isEnemy(guardian, token.actor) && tokenDistance(guardianToken, token) <= 5);
+    const allies = [...guardianToken.parent.tokens].filter((token) => token.actor && token.id !== guardianToken.id && !isDead(token.actor) && !isEnemy(guardian, token.actor) && tokenDistance(guardianToken, token) <= 5);
     const [ally] = await chooseTokens("Push which ally?", allies);
     if (!ally) return notify("warn", "No adjacent ally to push."), true;
     notify("info", await momentumMove(guardian, guardianToken, ally, 5));

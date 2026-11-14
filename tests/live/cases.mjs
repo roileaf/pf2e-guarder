@@ -688,6 +688,29 @@ const CASES = [
       await h.until('Failed saves knock creatures prone', x => conditionValue(x.enemy, 'prone') && conditionValue(x.enemy2, 'prone'));
       ctx.check('Far ally unaffected', !conditionValue((await h.state()).ally, 'prone'));
     } },
+  { name: 'feat-stomp-ground-dead', description: 'Stomp Ground skips dead creatures in the emanation.',
+    async run(ctx, h) {
+      await h.arrange({ feats: ['stomp-ground'], saveMalus: -40, positions: { guardian: [4, 6], ally: [12, 9], enemy: [5, 6], enemy2: [3, 6] } });
+      await ctx.rpc(ctx.gm, 'setFlag', { key: 'enemy2', changes: { 'system.attributes.hp.value': 0 } });
+      const s = await useFeat(ctx, h, 'stomp-ground', []);
+      await h.until('Living enemy knocked prone', x => conditionValue(x.enemy, 'prone'));
+      ctx.check('Dead enemy rolled no save', savesBy(await h.state(), s.enemy2.uuid).length === 0);
+      ctx.check('Dead enemy not prone', !conditionValue((await h.state()).enemy2, 'prone'));
+    } },
+  { name: 'feat-effect-duration', description: "Feat effects count from the guardian's turn, not the target's.",
+    async run(ctx, h) {
+      await h.arrange({ feats: ['shield-wallop'], attackBonus: 40, positions: { guardian: [4, 6], ally: [2, 9], enemy: [5, 6] } });
+      await ctx.rpc(ctx.gm, 'advanceTurnTo', { key: 'guardian' });
+      await useFeat(ctx, h, 'shield-wallop');
+      await h.until("Enemy stupefied until the start of the guardian's next turn", x => conditionValue(x.enemy, 'stupefied'));
+      for (const key of ['ally', 'enemy', 'enemy2']) {
+        await ctx.rpc(ctx.gm, 'nextTurn');
+        ctx.check(`Still stupefied on ${key}'s turn`, Boolean(conditionValue((await h.state()).enemy, 'stupefied')));
+      }
+      await ctx.rpc(ctx.gm, 'nextTurn');
+      await h.until("Stupefied ends as the guardian's next turn starts", x => !conditionValue(x.enemy, 'stupefied'));
+      await ctx.rpc(ctx.gm, 'advanceTurnTo', { key: 'enemy2' });
+    } },
   { name: 'feat-armored-courage', description: 'Armored Courage: temporary HP equal to level, frightened reduced, once per hour.',
     async run(ctx, h) {
       await h.arrange({ feats: ['armored-courage'] });

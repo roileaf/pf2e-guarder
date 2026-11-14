@@ -4,7 +4,7 @@ import { setting } from "../settings.js";
 import { timedPrompt } from "../ui/prompt.js";
 import { tauntKeepBody, tauntRangeBody, tauntSpellCard } from "../ui/views.js";
 import {
-  escapeHtml, hasSlug, isAlly, isEnemy, notify, sameActor, sceneTokenFor, tauntEffects, tauntOrigin, tokenDistance, tokenDocument,
+  escapeHtml, hasSlug, isAlly, isDead, isEnemy, notify, sameActor, sceneTokenFor, tauntEffects, tauntOrigin, tokenDistance, tokenDocument,
 } from "./actors.js";
 import { combatantFor } from "./reactions.js";
 import { messageTargets, targetsChanged } from "./toolbelt.js";
@@ -112,7 +112,7 @@ export async function tauntTokens({ guardian, guardianToken, item, targets: requ
     longDistance: hasSlug(guardian, SLUGS.longDistanceTaunt),
   });
   let targets = requested.map(tokenDocument)
-    .filter((token) => token?.parent?.id === scene?.id && isEnemy(guardian, token.actor));
+    .filter((token) => token?.parent?.id === scene?.id && !isDead(token.actor) && isEnemy(guardian, token.actor));
   if (!targets.length) {
     notify("warn", "Taunt: no enemy among the targets.");
     return false;

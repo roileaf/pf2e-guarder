@@ -69,6 +69,24 @@ export function immobilized(actor) {
   return IMMOBILIZING_CONDITIONS.some((slug) => hasCondition(actor, slug));
 }
 
+/** PF2e's own test: the dead status, or 0 HP without dying or unconscious. */
+export function isDead(actor) {
+  return Boolean(actor?.isDead);
+}
+
+/**
+ * system.context for an effect the guardian puts on another creature. PF2e counts the effect's
+ * start initiative from its origin's combatant and falls back to the bearer's own when there is none,
+ * so without this "until the end of the guardian's turn" would end on the target's turn.
+ */
+export function guardianEffectContext(guardian, target, item = null) {
+  return {
+    origin: { actor: guardian.uuid, token: sceneTokenFor(guardian)?.uuid ?? null, item: item?.uuid ?? null, spellcasting: null, rollOptions: [] },
+    target: target ? { actor: target.uuid, token: null } : null,
+    roll: null,
+  };
+}
+
 export function alive(actor) {
   const hp = actor?.attributes?.hp ?? actor?.system?.attributes?.hp;
   return !hp || Number(hp.value) > 0;
