@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2
+
+- Fixed: **Stomp Ground** rolled saves for dead creatures. Dead creatures are now skipped by Stomp Ground, feat and
+  Taunt targets, and ally choices (Covering Stance, Momentum Strike).
+- Fixed: effects the guardian puts on others ended on the target's turn instead of the guardian's. Stomp Ground's
+  off-guard now ends with the guardian's turn; Shield Wallop, Clang!, Covering Stance and the other timed feat effects
+  count from the guardian's turn too.
+
 ## 1.0.1
 
 - **Shielding Taunt** honors Group Taunt: with Group Taunt, target up to three enemies instead of exactly one. The chat
