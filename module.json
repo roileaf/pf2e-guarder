@@ -31,6 +31,13 @@
           "minimum": "8.5.0"
         }
       }
+    ],
+    "recommends": [
+      {
+        "id": "lib-wrapper",
+        "type": "module",
+        "reason": "Lets Guarder share PF2e's damage handling cleanly with other modules that change it."
+      }
     ]
   },
   "description": "Guardian automation for Pathfinder Second Edition: Intercept Attack damage redirection, Taunt management, and guardian reaction tracking.",

@@ -353,10 +353,39 @@ async function spendFrequency(guardian) {
   await action.update({ "system.frequency.value": Math.max(0, Number(frequency.value ?? frequency.max) - 1) });
 }
 
+// ActorPF2e.prototype: CONFIG.Actor.documentClass is PF2e's actor proxy, whose prototype is ActorPF2e's.
+const APPLY_DAMAGE_TARGET = "CONFIG.Actor.documentClass.prototype.applyDamage";
+
 function applyDamageOwner() {
   let prototype = CONFIG.PF2E.Actor.documentClasses.character.prototype;
   while (prototype && !Object.prototype.hasOwnProperty.call(prototype, "applyDamage")) prototype = Object.getPrototypeOf(prototype);
   return prototype;
+}
+
+/** Intercept Attack around PF2e's applyDamage. `wrapped` applies the damage; a full intercept never calls it. */
+async function interceptApplyDamage(wrapped, options = {}, ...args) {
+  const hpBefore = this.hitPoints?.value ?? null;
+  const conditionsBefore = (this.itemTypes?.condition ?? []).map((condition) => condition.slug);
+  const apply = async (applied) => {
+    // Shield Salvation needs to know that a shield takes damage from a Shield Block.
+    const result = applied?.shieldBlockRequest
+      ? await duringShieldBlock(this, () => wrapped(applied, ...args))
+      : await wrapped(applied, ...args);
+    // Keep Up the Good Fight and native Shield Block react to the damage that actually landed.
+    void afterDamage(this, applied, hpBefore, conditionsBefore).catch((error) => console.error(`${MODULE_ID} | after damage`, error));
+    return result;
+  };
+  let plan = null;
+  try {
+    plan = await planIntercept(this, options);
+  } catch (error) {
+    console.error(`${MODULE_ID} | could not check Intercept Attack`, error);
+  }
+  if (!plan) return apply(options);
+  const outcome = await runIntercept(this, options, plan);
+  if (!outcome) return apply(options);
+  if (outcome.remainder) return apply({ ...options, damage: outcome.remainder });
+  return this;
 }
 
 export function registerInterceptAttack() {
@@ -364,32 +393,19 @@ export function registerInterceptAttack() {
   registerOperation("intercept-resolve", (payload) => resolveIntercept(payload));
   registerListener("intercept-dismiss", ({ requestId }) => dismissPrompts(`${requestId}:`));
 
+  // libWrapper when installed, so other modules wrapping applyDamage (Kineticist's Companion and others) chain cleanly.
+  // MIXED: a fully intercepted hit returns without calling PF2e's applyDamage.
+  if (globalThis.libWrapper) {
+    globalThis.libWrapper.register(MODULE_ID, APPLY_DAMAGE_TARGET, function (wrapped, ...args) {
+      return interceptApplyDamage.call(this, wrapped, ...args);
+    }, "MIXED");
+    return;
+  }
   const prototype = applyDamageOwner();
   if (!prototype || prototype[WRAPPED]) return;
   const applyDamage = prototype.applyDamage;
-  prototype.applyDamage = async function (options = {}, ...args) {
-    const hpBefore = this.hitPoints?.value ?? null;
-    const conditionsBefore = (this.itemTypes?.condition ?? []).map((condition) => condition.slug);
-    const apply = async (applied) => {
-      // Shield Salvation needs to know that a shield takes damage from a Shield Block.
-      const result = applied?.shieldBlockRequest
-        ? await duringShieldBlock(this, () => applyDamage.call(this, applied, ...args))
-        : await applyDamage.call(this, applied, ...args);
-      // Keep Up the Good Fight and native Shield Block react to the damage that actually landed.
-      void afterDamage(this, applied, hpBefore, conditionsBefore).catch((error) => console.error(`${MODULE_ID} | after damage`, error));
-      return result;
-    };
-    let plan = null;
-    try {
-      plan = await planIntercept(this, options);
-    } catch (error) {
-      console.error(`${MODULE_ID} | could not check Intercept Attack`, error);
-    }
-    if (!plan) return apply(options);
-    const outcome = await runIntercept(this, options, plan);
-    if (!outcome) return apply(options);
-    if (outcome.remainder) return apply({ ...options, damage: outcome.remainder });
-    return this;
+  prototype.applyDamage = function (...args) {
+    return interceptApplyDamage.call(this, (...inner) => applyDamage.call(this, ...inner), ...args);
   };
   prototype[WRAPPED] = true;
 }
