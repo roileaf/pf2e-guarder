@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3
+
+- Fixed: libWrapper warned that Guarder and other modules (such as PF2e Kineticist's Companion) conflict over PF2e's
+  damage handling. Guarder now wraps it through libWrapper when installed, so they chain cleanly. Without libWrapper it
+  works as before. libWrapper is now a recommended module.
+
 ## 1.0.2
 
 - Fixed: **Stomp Ground** rolled saves for dead creatures. Dead creatures are now skipped by Stomp Ground, feat and
